@@ -25,7 +25,7 @@ export default {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId('open_confess_modal_clean')
-                    .setLabel(''💌'Submit a confession!')
+                    .setLabel('💌Submit a confession!')
                     .setStyle(ButtonStyle.Primary),
             );
 
