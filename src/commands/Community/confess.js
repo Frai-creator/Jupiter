@@ -1,0 +1,74 @@
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+
+// 1. Konfigurasi Bot
+const TOKEN = 'TOKEN_BOT_LU'; // Ganti pakai token bot Discord lo
+const CLIENT_ID = 'CLIENT_ID_BOT_LU'; // Ganti pakai Client ID bot lo
+const CONFESSION_CHANNEL_ID = '123456789012345678'; // Ganti pakai ID channel tujuan
+
+const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
+});
+
+// Daftarkan Slash Command
+const commands = [
+    new SlashCommandBuilder()
+        .setName('confess')
+        .setDescription('Kirim confession anonim ke channel khusus')
+        .addStringOption(option =>
+            option.setName('pesan')
+                .setDescription('Pesan confession yang mau dikirim')
+                .setRequired(true)
+        )
+].map(command => command.toJSON());
+
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+client.once('ready', async () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+
+    // Register slash commands ke Discord
+    try {
+        console.log('Started refreshing application (/) commands.');
+        await rest.put(
+            Routes.applicationCommands(CLIENT_ID),
+            { body: commands },
+        );
+        console.log('Successfully reloaded application (/) commands.');
+    } catch (error) {
+        console.error(error);
+    }
+});
+
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    if (interaction.commandName === 'confess') {
+        if (!interaction.guild) {
+            await interaction.reply({ content: "Fitur ini cuma bisa dipakai di dalam server ya!", ephemeral: true });
+            return;
+        }
+
+        const pesan = interaction.options.getString('pesan');
+        const channel = client.channels.cache.get(CONFESSION_CHANNEL_ID);
+
+        if (!channel) {
+            await interaction.reply({ content: "Waduh, channel confession-nya gak ketemu! Coba lapor admin.", ephemeral: true });
+            return;
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle('💌 New Confession')
+            .setDescription(pesan)
+            .setColor(0xFFB6C1)
+            .setFooter({ text: 'Kirim confession kamu pakai /confess secara anonim!' });
+
+        try {
+            await channel.send({ embeds: [embed] });
+            await interaction.reply({ content: "Sip! Confession kamu berhasil dikirim secara anonim. ✨", ephemeral: true });
+        } catch (error) {
+            await interaction.reply({ content: `Gagal ngirim confession: {error.message}`, ephemeral: true });
+        }
+    }
+});
+
+client.login(TOKEN);
