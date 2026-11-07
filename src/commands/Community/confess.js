@@ -1,9 +1,6 @@
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
-// 1. Konfigurasi Bot
-const TOKEN = 'TOKEN_BOT_LU'; // Ganti pakai token bot Discord lo
-const CLIENT_ID = 'CLIENT_ID_BOT_LU'; // Ganti pakai Client ID bot lo
-const CONFESSION_CHANNEL_ID = '123456789012345678'; // Ganti pakai ID channel tujuan
+
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
@@ -71,4 +68,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login(TOKEN);
+
