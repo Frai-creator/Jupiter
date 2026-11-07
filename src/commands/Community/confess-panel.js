@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
-let confessionCount = 0; // Nomor urut awal confession
+let confessionCount = ,0; // Nomor urut awal confession
 const CONFESSION_CHANNEL_ID = '1568453562818629837'; // Ganti pakai ID channel tujuan confession kamu
 
 export default {
@@ -17,7 +17,7 @@ export default {
 
         const embed = new EmbedBuilder()
             .setTitle('💌 Anonymous Confession Wall')
-            .setDescription('Mau nyatain perasaan, kasih pesan rahasia, atau curhat tanpa ketahuan siapa pengirimnya?\n\nKlik tombol **"Submit a confession!"** di bawah buat mulai kirim pesan rahasia kamu secara anonim! ✨')
+            .setDescription('Mau nyatain perasaan, kasih pesan rahasia, atau curhat tanpa ketahuan siapa pengirimnya?\n\nKlik tombol **"Submit a confession! 💌"** di bawah buat mulai kirim pesan rahasia kamu secara anonim! ✨')
             .setColor(0xFFB6C1)
             .setFooter({ text: 'Pesan kamu dijamin aman dan anonim!' });
 
@@ -25,7 +25,8 @@ export default {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId('open_confess_modal_clean')
-                    .setLabel('💌Submit a confession!')
+                    .setLabel('Submit a confession!')
+                    .setEmoji('💌') // Emoji di tombol utama setup
                     .setStyle(ButtonStyle.Primary),
             );
 
@@ -75,16 +76,18 @@ export default {
                         .setDescription(`"${pesan}"`)
                         .setColor(0x2b2d31);
 
-                    // Tombol di bawah confession: Submit baru + Tombol Reply
+                    // Tombol di bawah confession dengan emoji: Submit baru (💌) + Tombol Reply (💬)
                     const rowButton = new ActionRowBuilder()
                         .addComponents(
                             new ButtonBuilder()
                                 .setCustomId('open_confess_modal_clean')
                                 .setLabel('Submit a confession!')
+                                .setEmoji('💌')
                                 .setStyle(ButtonStyle.Primary),
                             new ButtonBuilder()
                                 .setCustomId(`open_reply_modal_${confessionCount}`)
-                                .setLabel('💬Reply')
+                                .setLabel('Reply')
+                                .setEmoji('💬')
                                 .setStyle(ButtonStyle.Secondary),
                         );
 
@@ -129,15 +132,12 @@ export default {
 
                     if (!targetChannel) return;
 
-                    // Cari pesan confession berdasarkan nomornya di channel atau langsung kirim ke thread yang sesuai
-                    // Kita cari thread yang namanya "Confession Replies (#nomor)"
                     const fetchedThreads = await targetChannel.threads.fetchActive();
                     let targetThread = fetchedThreads.threads.find(th => th.name === `Confession Replies (#${confNum})`);
 
                     if (!targetThread) {
-                        // Kalau thread aktif tidak ketemu, coba fetch archived threads
                         const archivedThreads = await targetChannel.threads.fetchArchived();
-                        targetThread = archivedThreads.threads.find(th => th.name === `Confession Replies (#${confNum})`);
+                        targetThread = archivedThreads.threads.fetchArchived().then(list => list.threads.find(th => th.name === `Confession Replies (#${confNum})`));
                     }
 
                     if (targetThread) {
