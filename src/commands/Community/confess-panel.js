@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
-let confessionCount = 730; // Nomor urut awal confession
+let confessionCount = 1; // Nomor urut awal confession
 const CONFESSION_CHANNEL_ID = '1568453562818629837'; // Ganti pakai ID channel tujuan confession kamu
 
 export default {
@@ -17,55 +17,63 @@ export default {
 
         const embed = new EmbedBuilder()
             .setTitle('💌 Anonymous Confession Wall')
-            .setDescription('Mau nyatain perasaan, kasih pesan rahasia, atau curhat tanpa ketahuan siapa pengirimnya?\n\nKlik tombol **"Kirim Confession"** di bawah buat mulai kirim pesan rahasia kamu secara anonim! ✨')
+            .setDescription('Mau nyatain perasaan, kasih pesan rahasia, atau curhat tanpa ketahuan siapa pengirimnya?\n\nKlik tombol **"Submit a confession!"** di bawah buat mulai kirim pesan rahasia kamu secara anonim! ✨')
             .setColor(0xFFB6C1)
             .setFooter({ text: 'Pesan kamu dijamin aman dan anonim!' });
 
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId('open_confess_modal')
+                    .setCustomId('open_confess_modal_titan') // Pakai ID unik biar gak bentrok
                     .setLabel('Submit a confession!')
                     .setStyle(ButtonStyle.Primary),
             );
 
         await interaction.reply({ content: "Berhasil membuat panel confession!", ephemeral: true });
-        await interaction.channel.send({ embeds: [embed], components: [row] });
-    },
+        const panelMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
 
-    // Handle interaksi tombol dan modal langsung di file ini supaya gak timeout/nyangkut
-    async executeInteraction(interaction) {
-        try {
-            // 1. Saat tombol diklik, langsung munculkan Modal (tanpa jeda)
-            if (interaction.isButton() && interaction.customId === 'open_confess_modal') {
-                const modal = new ModalBuilder()
-                    .setCustomId('confess_modal')
-                    .setTitle('Kirim Anonymous Confession');
+        // --- SISTEM LISTENER NUMPANG LANGSUNG DI SINI ---
+        // Ini bikin bot otomatis nge-listen klik tombol & submit modal dari panel yang baru dikirim tanpa lewat event handler luar!
+        const collector = panelMessage.createMessageComponentCollector();
 
-                const confessInput = new TextInputBuilder()
-                    .setCustomId('confess_message')
-                    .setLabel('Tulis pesan confession kamu di sini:')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setPlaceholder('Tulis pesan rahasiamu di sini...')
-                    .setRequired(true)
-                    .setMaxLength(1000);
+        collector.on('collect', async i => {
+            try {
+                // 1. Kalau tombol diklik
+                if (i.isButton() && i.customId === 'open_confess_modal_titan') {
+                    const modal = new ModalBuilder()
+                        .setCustomId('confess_modal_titan')
+                        .setTitle('Kirim Anonymous Confession');
 
-                const row = new ActionRowBuilder().addComponents(confessInput);
-                modal.addComponents(row);
+                    const confessInput = new TextInputBuilder()
+                        .setCustomId('confess_message_titan')
+                        .setLabel('Tulis pesan confession kamu di sini:')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Tulis pesan rahasiamu di sini...')
+                        .setRequired(true)
+                        .setMaxLength(1000);
 
-                await interaction.showModal(modal);
-                return;
+                    const modalRow = new ActionRowBuilder().addComponents(confessInput);
+                    modal.addComponents(modalRow);
+
+                    await i.showModal(modal);
+                }
+            } catch (err) {
+                console.error("Error button collector:", err);
             }
+        });
 
-            // 2. Saat modal dikirim (submit)
-            if (interaction.isModalSubmit() && interaction.customId === 'confess_modal') {
-                await interaction.deferReply({ ephemeral: true });
+        // 2. Listener khusus buat nangkap saat modalnya di-submit
+        interaction.client.on('interactionCreate', async i => {
+            if (!i.isModalSubmit() || i.customId !== 'confess_modal_titan') return;
 
-                const pesan = interaction.fields.getTextInputValue('confess_message');
-                const targetChannel = interaction.client.channels.cache.get(CONFESSION_CHANNEL_ID);
+            try {
+                await i.deferReply({ ephemeral: true });
+
+                const pesan = i.fields.getTextInputValue('confess_message_titan');
+                const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
 
                 if (!targetChannel) {
-                    await interaction.editReply({ content: "Waduh, channel tujuan confession belum diatur dengan benar di kode!" });
+                    await i.editReply({ content: "Waduh, channel tujuan confession belum diatur dengan benar di kode!" });
                     return;
                 }
 
@@ -76,15 +84,15 @@ export default {
                     .setDescription(`"${pesan}"`)
                     .setColor(0x2b2d31);
 
-                const row = new ActionRowBuilder()
+                const rowButton = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
-                            .setCustomId('open_confess_modal')
+                            .setCustomId('open_confess_modal_titan')
                             .setLabel('Submit a confession!')
                             .setStyle(ButtonStyle.Primary),
                     );
 
-                const sentMessage = await targetChannel.send({ embeds: [confessEmbed], components: [row] });
+                const sentMessage = await targetChannel.send({ embeds: [confessEmbed], components: [rowButton] });
 
                 // Bikin Thread otomatis di bawahnya
                 await sentMessage.startThread({
@@ -92,13 +100,13 @@ export default {
                     autoArchiveDuration: 1440,
                 });
 
-                await interaction.editReply({ content: "Sip! Confession kamu berhasil dikirim secara anonim. ✨" });
+                await i.editReply({ content: "Sip! Confession kamu berhasil dikirim secara anonim. ✨" });
+            } catch (error) {
+                console.error("Error modal submit:", error);
+                if (i.isRepliable() && !i.replied) {
+                    await i.reply({ content: `Terjadi kesalahan: ${error.message}`, ephemeral: true }).catch(() => {});
+                }
             }
-        } catch (error) {
-            console.error("Error confession interaction:", error);
-            if (interaction.isRepliable() && !interaction.replied) {
-                await interaction.reply({ content: `Terjadi kesalahan: ${error.message}`, ephemeral: true }).catch(() => {});
-            }
-        }
+        });
     }
 };
