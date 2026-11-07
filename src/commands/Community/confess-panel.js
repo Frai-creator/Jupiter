@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
-let confessionCount = 1; // Nomor urut awal confession
+let confessionCount = 730; // Nomor urut awal confession
 const CONFESSION_CHANNEL_ID = '1568453562818629837'; // Ganti pakai ID channel tujuan confession kamu
 
 export default {
@@ -24,7 +24,7 @@ export default {
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId('open_confess_modal_titan') // Pakai ID unik biar gak bentrok
+                    .setCustomId('open_confess_modal_clean')
                     .setLabel('Submit a confession!')
                     .setStyle(ButtonStyle.Primary),
             );
@@ -32,50 +32,42 @@ export default {
         await interaction.reply({ content: "Berhasil membuat panel confession!", ephemeral: true });
         const panelMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
 
-        // --- SISTEM LISTENER NUMPANG LANGSUNG DI SINI ---
-        // Ini bikin bot otomatis nge-listen klik tombol & submit modal dari panel yang baru dikirim tanpa lewat event handler luar!
+        // Collector buat tombol di panel utama
         const collector = panelMessage.createMessageComponentCollector();
 
         collector.on('collect', async i => {
-            try {
-                // 1. Kalau tombol diklik
-                if (i.isButton() && i.customId === 'open_confess_modal_titan') {
-                    const modal = new ModalBuilder()
-                        .setCustomId('confess_modal_titan')
-                        .setTitle('Kirim Anonymous Confession');
+            if (i.isButton() && i.customId === 'open_confess_modal_clean') {
+                const modal = new ModalBuilder()
+                    .setCustomId('confess_modal_clean')
+                    .setTitle('Kirim Anonymous Confession');
 
-                    const confessInput = new TextInputBuilder()
-                        .setCustomId('confess_message_titan')
-                        .setLabel('Tulis pesan confession kamu di sini:')
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setPlaceholder('Tulis pesan rahasiamu di sini...')
-                        .setRequired(true)
-                        .setMaxLength(1000);
+                const confessInput = new TextInputBuilder()
+                    .setCustomId('confess_message_clean')
+                    .setLabel('Tulis pesan confession kamu di sini:')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setPlaceholder('Tulis pesan rahasiamu di sini...')
+                    .setRequired(true)
+                    .setMaxLength(1000);
 
-                    const modalRow = new ActionRowBuilder().addComponents(confessInput);
-                    modal.addComponents(modalRow);
+                const modalRow = new ActionRowBuilder().addComponents(confessInput);
+                modal.addComponents(modalRow);
 
-                    await i.showModal(modal);
-                }
-            } catch (err) {
-                console.error("Error button collector:", err);
+                await i.showModal(modal);
             }
         });
 
-        // 2. Listener khusus buat nangkap saat modalnya di-submit
+        // Global listener buat nangkep submit modal & langsung kirim tanpa jejak balasan bot
         interaction.client.on('interactionCreate', async i => {
-            if (!i.isModalSubmit() || i.customId !== 'confess_modal_titan') return;
+            if (!i.isModalSubmit() || i.customId !== 'confess_modal_clean') return;
 
             try {
-                await i.deferReply({ ephemeral: true });
+                // KUNCI UTAMA: deferUpdate bikin modal langsung tutup bersih TANPA ada teks balasan bot!
+                await i.deferUpdate();
 
-                const pesan = i.fields.getTextInputValue('confess_message_titan');
+                const pesan = i.fields.getTextInputValue('confess_message_clean');
                 const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
 
-                if (!targetChannel) {
-                    await i.editReply({ content: "Waduh, channel tujuan confession belum diatur dengan benar di kode!" });
-                    return;
-                }
+                if (!targetChannel) return;
 
                 confessionCount++;
 
@@ -84,28 +76,26 @@ export default {
                     .setDescription(`"${pesan}"`)
                     .setColor(0x2b2d31);
 
+                // Tombol di bawah hasil confession (bisa ditambah tombol lain kalau mau)
                 const rowButton = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
-                            .setCustomId('open_confess_modal_titan')
+                            .setCustomId('open_confess_modal_clean')
                             .setLabel('Submit a confession!')
                             .setStyle(ButtonStyle.Primary),
                     );
 
+                // Kirim hasil confession ke channel tujuan
                 const sentMessage = await targetChannel.send({ embeds: [confessEmbed], components: [rowButton] });
 
-                // Bikin Thread otomatis di bawahnya
+                // Otomatis buat Thread buat tempat "Reply" diskusi
                 await sentMessage.startThread({
                     name: `Confession Replies (#${confessionCount})`,
                     autoArchiveDuration: 1440,
                 });
 
-                await i.editReply({ content: "Sip! Confession kamu berhasil dikirim secara anonim. ✨" });
             } catch (error) {
-                console.error("Error modal submit:", error);
-                if (i.isRepliable() && !i.replied) {
-                    await i.reply({ content: `Terjadi kesalahan: ${error.message}`, ephemeral: true }).catch(() => {});
-                }
+                console.error("Error clean modal submit:", error);
             }
         });
     }
