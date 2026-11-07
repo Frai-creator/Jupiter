@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
-let confessionCount = 730; // Nomor urut awal confession
+let confessionCount = 0; // Nomor urut awal confession
 const CONFESSION_CHANNEL_ID = '1568453562818629837'; // Ganti pakai ID channel tujuan confession kamu
 
 export default {
@@ -32,7 +32,7 @@ export default {
         await interaction.reply({ content: "Berhasil membuat panel confession!", ephemeral: true });
         const panelMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
 
-        // Collector buat tombol di panel utama
+        // Collector untuk panel utama
         const collector = panelMessage.createMessageComponentCollector();
 
         collector.on('collect', async i => {
@@ -56,46 +56,98 @@ export default {
             }
         });
 
-        // Global listener buat nangkep submit modal & langsung kirim tanpa jejak balasan bot
+        // Global listener untuk submit modal confession, klik tombol Reply, dan submit modal reply
         interaction.client.on('interactionCreate', async i => {
-            if (!i.isModalSubmit() || i.customId !== 'confess_modal_clean') return;
-
             try {
-                // KUNCI UTAMA: deferUpdate bikin modal langsung tutup bersih TANPA ada teks balasan bot!
-                await i.deferUpdate();
+                // 1. Submit Modal Confession Utama
+                if (i.isModalSubmit() && i.customId === 'confess_modal_clean') {
+                    await i.deferUpdate();
 
-                const pesan = i.fields.getTextInputValue('confess_message_clean');
-                const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
+                    const pesan = i.fields.getTextInputValue('confess_message_clean');
+                    const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
 
-                if (!targetChannel) return;
+                    if (!targetChannel) return;
 
-                confessionCount++;
+                    confessionCount++;
 
-                const confessEmbed = new EmbedBuilder()
-                    .setTitle(`Anonymous Confession (#${confessionCount})`)
-                    .setDescription(`"${pesan}"`)
-                    .setColor(0x2b2d31);
+                    const confessEmbed = new EmbedBuilder()
+                        .setTitle(`Anonymous Confession (#${confessionCount})`)
+                        .setDescription(`"${pesan}"`)
+                        .setColor(0x2b2d31);
 
-                // Tombol di bawah hasil confession (bisa ditambah tombol lain kalau mau)
-                const rowButton = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId('open_confess_modal_clean')
-                            .setLabel('Submit a confession!')
-                            .setStyle(ButtonStyle.Primary),
-                    );
+                    // Tombol di bawah confession: Submit baru + Tombol Reply
+                    const rowButton = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('open_confess_modal_clean')
+                                .setLabel('Submit a confession!')
+                                .setStyle(ButtonStyle.Primary),
+                            new ButtonBuilder()
+                                .setCustomId(`open_reply_modal_${confessionCount}`)
+                                .setLabel('Reply')
+                                .setStyle(ButtonStyle.Secondary),
+                        );
 
-                // Kirim hasil confession ke channel tujuan
-                const sentMessage = await targetChannel.send({ embeds: [confessEmbed], components: [rowButton] });
+                    const sentMessage = await targetChannel.send({ embeds: [confessEmbed], components: [rowButton] });
 
-                // Otomatis buat Thread buat tempat "Reply" diskusi
-                await sentMessage.startThread({
-                    name: `Confession Replies (#${confessionCount})`,
-                    autoArchiveDuration: 1440,
-                });
+                    // Otomatis buat Thread buat tempat diskusi
+                    await sentMessage.startThread({
+                        name: `Confession Replies (#${confessionCount})`,
+                        autoArchiveDuration: 1440,
+                    });
+                }
 
+                // 2. Ketika tombol "Reply" diklik
+                if (i.isButton() && i.customId.startsWith('open_reply_modal_')) {
+                    const confNum = i.customId.split('_')[3]; // Ambil nomor confession-nya
+
+                    const replyModal = new ModalBuilder()
+                        .setCustomId(`reply_submit_modal_${confNum}`)
+                        .setTitle(`Reply to Confession #${confNum}`);
+
+                    const replyInput = new TextInputBuilder()
+                        .setCustomId('reply_message')
+                        .setLabel('Tulis balasan kamu di sini:')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Tulis balasan rahasiamu...')
+                        .setRequired(true)
+                        .setMaxLength(1000);
+
+                    const replyRow = new ActionRowBuilder().addComponents(replyInput);
+                    replyModal.addComponents(replyRow);
+
+                    await i.showModal(replyModal);
+                }
+
+                // 3. Ketika Modal Reply di-submit
+                if (i.isModalSubmit() && i.customId.startsWith('reply_submit_modal_')) {
+                    await i.deferUpdate();
+
+                    const confNum = i.customId.split('_')[3];
+                    const replyText = i.fields.getTextInputValue('reply_message');
+                    const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
+
+                    if (!targetChannel) return;
+
+                    // Cari pesan confession berdasarkan nomornya di channel atau langsung kirim ke thread yang sesuai
+                    // Kita cari thread yang namanya "Confession Replies (#nomor)"
+                    const fetchedThreads = await targetChannel.threads.fetchActive();
+                    let targetThread = fetchedThreads.threads.find(th => th.name === `Confession Replies (#${confNum})`);
+
+                    if (!targetThread) {
+                        // Kalau thread aktif tidak ketemu, coba fetch archived threads
+                        const archivedThreads = await targetChannel.threads.fetchArchived();
+                        targetThread = archivedThreads.threads.find(th => th.name === `Confession Replies (#${confNum})`);
+                    }
+
+                    if (targetThread) {
+                        await targetThread.send({
+                            content: `💬 **Anonymous Reply:**\n> ${replyText}`
+                        });
+                    }
+                }
             } catch (error) {
-                console.error("Error clean modal submit:", error);
+                console.error("Error interaction handler:", error);
             }
         });
     }
