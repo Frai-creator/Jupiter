@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
-const CONFESSION_CHANNEL_ID = '1568453562818629837'; // Ganti pakai ID channel tujuan
+const CONFESSION_CHANNEL_ID = '1568453562818629837'; // Ganti ID channel tujuan
 
-module.exports = {
+export default {
     data: new SlashCommandBuilder()
         .setName('confess')
         .setDescription('Kirim confession anonim ke channel khusus')
