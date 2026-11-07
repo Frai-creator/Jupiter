@@ -84,7 +84,7 @@ export default {
                                 .setStyle(ButtonStyle.Primary),
                             new ButtonBuilder()
                                 .setCustomId(`open_reply_modal_${confessionCount}`)
-                                .setLabel('Reply')
+                                .setLabel('💬Reply')
                                 .setStyle(ButtonStyle.Secondary),
                         );
 
