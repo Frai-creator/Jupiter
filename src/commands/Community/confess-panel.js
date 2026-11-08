@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
 let confessionCount = 0; 
-const CONFESSION_CHANNEL_ID = '1568818853583257636'; // ID Channel publik tempat panel & hasil confession dikirim
-const CHANNEL_LOG_ID = '1568826233125470309'; // ID Channel khusus admin buat nge-cek siapa pengirim aslinya
+const CONFESSION_CHANNEL_ID = '1568826233125470309'; // Ganti pakai ID channel tujuan confession kamu
+const CHANNEL_LOG_ID = '1568818853583257636'; // Ganti pakai ID channel khusus log admin
 
 export default {
     data: new SlashCommandBuilder()
@@ -34,10 +34,10 @@ export default {
         await interaction.reply({ content: "Berhasil membuat panel confession!", ephemeral: true });
         const panelMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
 
-        const collector = panelMessage.createMessageComponentCollector();
-
-        collector.on('collect', async i => {
+        // Global listener buat nangkep semua tombol & modal
+        interaction.client.on('interactionCreate', async i => {
             try {
+                // 1. Ketika tombol "Submit a confession!" diklik (baik dari panel atau dari bawah pesan confession)
                 if (i.isButton() && i.customId === 'open_confess_modal_clean') {
                     const modal = new ModalBuilder()
                         .setCustomId('confess_modal_clean')
@@ -56,14 +56,8 @@ export default {
 
                     await i.showModal(modal);
                 }
-            } catch (err) {
-                console.error("Error collector:", err);
-            }
-        });
 
-        interaction.client.on('interactionCreate', async i => {
-            try {
-                // 1. Submit Modal Confession Utama
+                // 2. Submit Modal Confession Utama
                 if (i.isModalSubmit() && i.customId === 'confess_modal_clean') {
                     await i.deferUpdate();
 
@@ -75,7 +69,6 @@ export default {
 
                     confessionCount++;
 
-                    // Kirim ke channel publik (ANONIM)
                     const confessEmbed = new EmbedBuilder()
                         .setTitle(`Anonymous Confession (#${confessionCount})`)
                         .setDescription(`"${pesan}"`)
@@ -102,7 +95,7 @@ export default {
                         autoArchiveDuration: 1440,
                     });
 
-                    // KIRIM LOG KE ADMIN (KETAHUAN SIAPA PENGIRIMNYA)
+                    // Kirim log ke channel admin
                     if (logChannel) {
                         const logEmbed = new EmbedBuilder()
                             .setTitle(`📋 Confession Log (#${confessionCount})`)
@@ -117,7 +110,7 @@ export default {
                     }
                 }
 
-                // 2. Klik Tombol Reply
+                // 3. Ketika tombol "Reply" diklik
                 if (i.isButton() && i.customId.startsWith('open_reply_modal_')) {
                     const confNum = i.customId.split('_')[3];
 
@@ -139,7 +132,7 @@ export default {
                     await i.showModal(replyModal);
                 }
 
-                // 3. Submit Modal Reply
+                // 4. Ketika Modal Reply di-submit
                 if (i.isModalSubmit() && i.customId.startsWith('reply_submit_modal_')) {
                     await i.deferUpdate();
 
