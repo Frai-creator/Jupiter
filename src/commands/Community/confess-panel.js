@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
-let confessionCount = 730; 
+let confessionCount = 0; 
 const CONFESSION_CHANNEL_ID = '1568818853583257636'; // ID Channel publik tempat panel & hasil confession dikirim
-const CHANNEL_LOG_ID = '1568453562818629837'; // ID Channel khusus admin buat nge-cek siapa pengirim aslinya
+const CHANNEL_LOG_ID = '1568826233125470309'; // ID Channel khusus admin buat nge-cek siapa pengirim aslinya
 
 export default {
     data: new SlashCommandBuilder()
