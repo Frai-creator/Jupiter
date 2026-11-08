@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
 
 let confessionCount = 0; 
-const CONFESSION_CHANNEL_ID = '1568826233125470309'; // Ganti pakai ID channel tujuan confession kamu
-const CHANNEL_LOG_ID = '1568818853583257636'; // Ganti pakai ID channel khusus log admin
+const CONFESSION_CHANNEL_ID = '1568818853583257636'; // Ganti pakai ID channel tujuan confession kamu
+const CHANNEL_LOG_ID = '1568826233125470309'; // Ganti pakai ID channel khusus log admin
 
 export default {
     data: new SlashCommandBuilder()
