@@ -85,7 +85,7 @@ export default {
 
         const staffEmbed = new EmbedBuilder()
             .setTitle(`✨ Daftar Admin & Staff ${interaction.guild.name}`)
-            .setDescription(`Staff AKASYAA ${interaction.guild.name}.\n\n🔵 **Total Staff:** ${totalStaffCount} orang`)
+            .setDescription(`Staff ${interaction.guild.name}.\n\n🔵 **Total Staff:** ${totalStaffCount} orang`)
             .setColor(0x2b2d31)
             .setTimestamp()
             .setFooter({ text: `Check out channel terkait server` });
