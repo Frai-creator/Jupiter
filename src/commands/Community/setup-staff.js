@@ -14,7 +14,7 @@ export default {
 
         await interaction.deferReply({ ephemeral: true });
 
-        // Data lengkap divisi, role, deskripsi (sudah direvisi), dan member staff
+        // Data lengkap divisi, role, deskripsi, dan member staff
         const staffGroups = [
             {
                 name: 'Eternal Crown',
@@ -80,17 +80,22 @@ export default {
             }
         ];
 
-        // Hitung total seluruh staff dari semua divisi
         let totalStaffCount = staffGroups.reduce((acc, group) => acc + group.members.length, 0);
+
+        const serverIcon = interaction.guild.iconURL({ dynamic: true, size: 512 });
 
         const staffEmbed = new EmbedBuilder()
             .setTitle(`✨ Daftar Admin & Staff ${interaction.guild.name}`)
-            .setDescription(`Staff ${interaction.guild.name}.\n\n🔵 **Total Staff:** ${totalStaffCount} orang`)
+            // Deskripsi cuma nyisain info total staff doang
+            .setDescription(`🔵 **Total Staff:** ${totalStaffCount} orang`)
             .setColor(0x2b2d31)
             .setTimestamp()
             .setFooter({ text: `Check out channel terkait server` });
 
-        // Masukin setiap divisi ke dalam field embed
+        if (serverIcon) {
+            staffEmbed.setThumbnail(serverIcon);
+        }
+
         for (const group of staffGroups) {
             const roleHeader = group.roleId ? `<@&${group.roleId}>` : `**${group.name}**`;
             
@@ -105,8 +110,7 @@ export default {
             });
         }
 
-        // Kirim panel embed ke channel publik & konfirmasi ephemeral ke admin
         await interaction.channel.send({ embeds: [staffEmbed] });
-        await interaction.editReply({ content: "Berhasil mengirim daftar staff dengan revisi terbaru ke channel ini!" });
+        await interaction.editReply({ content: "Berhasil mengirim daftar staff!" });
     }
 };
