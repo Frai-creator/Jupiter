@@ -33,7 +33,7 @@ export default {
             },
             {
                 name: 'Operator',
-                roleId: '1566366098507702292',
+                roleId: '156636609850',
                 desc: 'Mengatur dan mengelola bot server, memastikan fitur bot berjalan dengan baik, serta membantu menangani kebutuhan teknis server.',
                 members: ['<@1302370416332902440>']
             },
@@ -85,7 +85,7 @@ export default {
 
         const staffEmbed = new EmbedBuilder()
             .setTitle(`✨ Daftar Admin & Staff ${interaction.guild.name}`)
-            .setDescription( ${interaction.guild.name}.\n\n🔵 **Total Staff:** ${totalStaffCount} orang`)
+            .setDescription(`Staff AKASYAA ${interaction.guild.name}.\n\n🔵 **Total Staff:** ${totalStaffCount} orang`)
             .setColor(0x2b2d31)
             .setTimestamp()
             .setFooter({ text: `Check out channel terkait server` });
