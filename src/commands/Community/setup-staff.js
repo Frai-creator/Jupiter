@@ -33,7 +33,7 @@ export default {
             },
             {
                 name: 'Operator',
-                roleId: '156636609850',
+                roleId: '1566366098507702292',
                 desc: 'Mengatur dan mengelola bot server, memastikan fitur bot berjalan dengan baik, serta membantu menangani kebutuhan teknis server.',
                 members: ['<@1302370416332902440>']
             },
