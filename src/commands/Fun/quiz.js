@@ -17,9 +17,8 @@ export default {
         const channel = interaction.channel;
 
         try {
-            // Meminta soal kuis ke AI Text gratis via Pollinations
             const prompt = `Buatkan 1 soal kuis pengetahuan umum / anime / game yang menarik dan acak dalam Bahasa Indonesia.
-            Format respon HARUS berupa JSON murni tanpa markdown/backticks, dengan struktur persis seperti ini:
+            PENTING: Berikan jawaban HANYA dalam format JSON murni tanpa teks pengantar, tanpa markdown block (seperti \`\`\`json). Gunakan struktur persis seperti ini:
             {
               "question": "Pertanyaan kuis di sini...",
               "image_keyword": "english keyword for image generator, e.g. futuristic cyberpunk city",
@@ -36,11 +35,15 @@ export default {
             const aiRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&json=true`);
             const rawText = await aiRes.text();
             
-            // Bersihkan format jika ada markdown
-            const cleanJson = rawText.replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
-            const q = JSON.parse(cleanJson);
+            // Ekstraksi string JSON secara aman jika AI menyisipkan teks lain
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error("Format respons dari AI tidak valid.");
+            }
+            
+            const q = JSON.parse(jsonMatch[0]);
 
-            const generatedImageUrl = `[https://pollinations.ai/p/$](https://pollinations.ai/p/$){encodeURIComponent(q.image_keyword)}?width=800&height=500&seed=${Math.floor(Math.random() * 9999)}&nologo=true`;
+            const generatedImageUrl = `https://pollinations.ai/p/${encodeURIComponent(q.image_keyword)}?width=800&height=500&seed=${Math.floor(Math.random() * 9999)}&nologo=true`;
             const timeLimit = 30;
 
             const embed = new EmbedBuilder()
@@ -105,7 +108,7 @@ export default {
 
         } catch (error) {
             console.error("Error AI Quiz Generator:", error);
-            await interaction.editReply({ content: "❌ Gagal membuat kuis AI. Coba lagi beberapa saat lagi!" });
+            await interaction.editReply({ content: "❌ Gagal memuat kuis. Terjadi kendala saat memproses data dari AI, silakan coba ketik `/quiz` lagi!" });
         }
     }
 };
