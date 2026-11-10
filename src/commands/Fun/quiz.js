@@ -1,10 +1,10 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
 
-// Daftar Soal Quiz (Bisa kamu tambah/ubah sesuka hati)
+// Daftar Soal Quiz (Ganti `image` dengan link gambar asli/valid, misal upload dulu ke Discord lalu salin link gambarnya)
 const quizQuestions = [
     {
         question: "Siapakah karakter di bawah ini?",
-        image: "https://i.imgur.com/813u3PN.png", // Ganti link gambar soal ke-1
+        image: "https://media.discordapp.net/attachments/...", // Ganti pakai link gambar asli
         options: [
             { id: 'A', text: 'Jett (Valorant)' },
             { id: 'B', text: 'Raiden Shogun (Genshin)' },
@@ -16,7 +16,7 @@ const quizQuestions = [
     },
     {
         question: "Apa nama framework bot yang sedang kita pakai?",
-        image: "https://i.imgur.com/example2.png", // Ganti link gambar soal ke-2
+        image: "https://media.discordapp.net/attachments/...", // Ganti pakai link gambar asli
         options: [
             { id: 'A', text: 'Python' },
             { id: 'B', text: 'Discord.js (Node.js)' },
@@ -27,6 +27,16 @@ const quizQuestions = [
         explanation: 'Jawaban yang benar adalah **B) Discord.js (Node.js)**!'
     }
 ];
+
+// Fungsi untuk mengacak urutan soal (Randomizer)
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
 
 export default {
     data: new SlashCommandBuilder()
@@ -40,15 +50,17 @@ export default {
             return;
         }
 
-        await interaction.reply({ content: "🎮 **Event Quiz dimulai!** Soal pertama akan segera dikirim...", ephemeral: true });
+        await interaction.reply({ content: "🎮 **Event Quiz dimulai!** Soal diacak dan akan segera dikirim...", ephemeral: true });
 
         const channel = interaction.channel;
         let currentQuestionIndex = 0;
-        const scores = new Map(); // Menyimpan skor peserta (userId -> poin)
+        const scores = new Map();
+
+        // Acak soal setiap kali command /quiz dijalankan
+        const randomizedQuestions = shuffleArray(quizQuestions);
 
         const sendNextQuestion = async () => {
-            if (currentQuestionIndex >= quizQuestions.length) {
-                // Quiz Selesai, tampilkan Leaderboard
+            if (currentQuestionIndex >= randomizedQuestions.length) {
                 const sortedScores = [...scores.entries()].sort((a, b) => b[1] - a[1]);
                 let leaderboardText = sortedScores.length > 0 
                     ? sortedScores.map(([userId, score], index) => `**#${index + 1}** <@${userId}> — **${score} Poin**`).join('\n')
@@ -64,17 +76,20 @@ export default {
                 return;
             }
 
-            const q = quizQuestions[currentQuestionIndex];
-            const timeLimit = 30; // Waktu 30 detik per soal
+            const q = randomizedQuestions[currentQuestionIndex];
+            const timeLimit = 30; // 30 detik
 
             const embed = new EmbedBuilder()
-                .setTitle(`🧩 Soal Kuis #${currentQuestionIndex + 1} / ${quizQuestions.length}`)
+                .setTitle(`🧩 Soal Kuis #${currentQuestionIndex + 1} / ${randomizedQuestions.length}`)
                 .setDescription(`**${q.question}**\n\n⏱️ Waktu menjawab: **${timeLimit} detik**!\nCepat-cepatan klik tombol di bawah!`)
-                .setImage(q.image)
                 .setColor(0xFFB6C1)
                 .setFooter({ text: 'Pilih jawaban yang paling tepat!' });
 
-            // Membuat tombol pilihan ganda (A, B, C, D)
+            // Hanya pasang gambar jika link-nya valid / ada isinya
+            if (q.image && q.image.startsWith('http')) {
+                embed.setImage(q.image);
+            }
+
             const row = new ActionRowBuilder();
             q.options.forEach(opt => {
                 row.addComponents(
@@ -88,8 +103,6 @@ export default {
             const msg = await channel.send({ embeds: [embed], components: [row] });
 
             const answeredUsers = new Set();
-            let correctAnswerUser = null;
-
             const collector = msg.createMessageComponentCollector({ time: timeLimit * 1000 });
 
             collector.on('collect', async i => {
@@ -102,20 +115,16 @@ export default {
                 const chosenOpt = i.customId.split('_')[2];
 
                 if (chosenOpt === q.correct) {
-                    // Jika benar, catat poin
                     const currentScore = scores.get(i.user.id) || 0;
                     scores.set(i.user.id, currentScore + 1);
-                    correctAnswerUser = i.user;
 
                     await i.reply({ content: `✅ **Benar!** Kamu mendapatkan poin.`, ephemeral: true });
-                    collector.stop('correct_answered'); // Langsung hentikan waktu karena udah ada yang benar (atau bisa dilanjutin sampai waktu habis)
                 } else {
-                    await i.reply({ content: `❌ **Kurang tepat!** Coba lagi atau tunggu soal berikutnya.`, ephemeral: true });
+                    await i.reply({ content: `❌ **Kurang tepat!**`, ephemeral: true });
                 }
             });
 
             collector.on('end', async (collected, reason) => {
-                // Matikan semua tombol setelah waktu habis / ada yang benar
                 const disabledRow = new ActionRowBuilder();
                 q.options.forEach(opt => {
                     disabledRow.addComponents(
@@ -130,18 +139,19 @@ export default {
                 const timeUpEmbed = new EmbedBuilder()
                     .setTitle(`⏰ Waktu Habis - Soal #${currentQuestionIndex + 1}`)
                     .setDescription(`Waktu menjawab telah selesai!\n\n🔑 ${q.explanation}`)
-                    .setImage(q.image)
                     .setColor(0xFFA500);
+
+                if (q.image && q.image.startsWith('http')) {
+                    timeUpEmbed.setImage(q.image);
+                }
 
                 await msg.edit({ embeds: [timeUpEmbed], components: [disabledRow] });
 
-                // Jeda 3 detik sebelum lanjut ke soal berikutnya
                 currentQuestionIndex++;
                 setTimeout(sendNextQuestion, 3000);
             });
         };
 
-        // Mulai soal pertama
         sendNextQuestion();
     }
 };
