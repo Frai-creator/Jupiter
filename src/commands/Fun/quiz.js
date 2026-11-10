@@ -1,5 +1,4 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default {
     data: new SlashCommandBuilder()
@@ -13,24 +12,17 @@ export default {
             return;
         }
 
-        await interaction.reply({ content: "🤖 **AI sedang membuat soal kuis & gambar acak... Mohon tunggu sebentar!**", ephemeral: true });
+        await interaction.reply({ content: "🤖 **AI sedang meracik soal kuis & gambar acak... Mohon tunggu sebentar!**", ephemeral: true });
 
         const channel = interaction.channel;
 
         try {
-            // Cek apakah API Key ada
-            if (!process.env.GEMINI_API_KEY) {
-                throw new Error("GEMINI_API_KEY tidak ditemukan di environment variables!");
-            }
-
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            
+            // Meminta soal kuis ke AI Text gratis via Pollinations
             const prompt = `Buatkan 1 soal kuis pengetahuan umum / anime / game yang menarik dan acak dalam Bahasa Indonesia.
-            Format respon HARUS berupa JSON murni tanpa markdown/backticks seperti ini:
+            Format respon HARUS berupa JSON murni tanpa markdown/backticks, dengan struktur persis seperti ini:
             {
               "question": "Pertanyaan kuis di sini...",
-              "image_keyword": "english keyword for image generator, e.g. cute cat in space",
+              "image_keyword": "english keyword for image generator, e.g. futuristic cyberpunk city",
               "options": [
                 {"id": "A", "text": "Pilihan A"},
                 {"id": "B", "text": "Pilihan B"},
@@ -41,13 +33,12 @@ export default {
               "explanation": "Penjelasan singkat jawaban yang benar."
             }`;
 
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            let textResponse = response.text().trim();
-
-            // Bersihkan format markdown jika ada
-            textResponse = textResponse.replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
-            const q = JSON.parse(textResponse);
+            const aiRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai&json=true`);
+            const rawText = await aiRes.text();
+            
+            // Bersihkan format jika ada markdown
+            const cleanJson = rawText.replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
+            const q = JSON.parse(cleanJson);
 
             const generatedImageUrl = `[https://pollinations.ai/p/$](https://pollinations.ai/p/$){encodeURIComponent(q.image_keyword)}?width=800&height=500&seed=${Math.floor(Math.random() * 9999)}&nologo=true`;
             const timeLimit = 30;
@@ -114,7 +105,7 @@ export default {
 
         } catch (error) {
             console.error("Error AI Quiz Generator:", error);
-            await interaction.editReply({ content: "❌ Gagal membuat kuis AI. Pastikan `GEMINI_API_KEY` sudah benar di Railway!" });
+            await interaction.editReply({ content: "❌ Gagal membuat kuis AI. Coba lagi beberapa saat lagi!" });
         }
     }
 };
