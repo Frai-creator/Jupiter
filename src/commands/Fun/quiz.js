@@ -1,9 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Inisialisasi Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 export default {
     data: new SlashCommandBuilder()
         .setName('quiz')
@@ -16,15 +13,20 @@ export default {
             return;
         }
 
-        // Tampilkan balasan sementara karena AI butuh beberapa detik buat mikir
         await interaction.reply({ content: "🤖 **AI sedang membuat soal kuis & gambar acak... Mohon tunggu sebentar!**", ephemeral: true });
 
         const channel = interaction.channel;
 
         try {
-            // 1. Minta Gemini AI buat generate soal acak
+            // Cek apakah API Key ada
+            if (!process.env.GEMINI_API_KEY) {
+                throw new Error("GEMINI_API_KEY tidak ditemukan di environment variables!");
+            }
+
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const prompt = `Buatkan 1 soal kuis tebak-tebakan atau pengetahuan umum/anime/game yang menarik dan acak dalam Bahasa Indonesia.
+            
+            const prompt = `Buatkan 1 soal kuis pengetahuan umum / anime / game yang menarik dan acak dalam Bahasa Indonesia.
             Format respon HARUS berupa JSON murni tanpa markdown/backticks seperti ini:
             {
               "question": "Pertanyaan kuis di sini...",
@@ -40,16 +42,15 @@ export default {
             }`;
 
             const result = await model.generateContent(prompt);
-            let textResponse = result.response.text().trim();
+            const response = await result.response;
+            let textResponse = response.text().trim();
 
-            // Bersihkan respon jika ada format ```json ``` dari AI
+            // Bersihkan format markdown jika ada
             textResponse = textResponse.replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim();
             const q = JSON.parse(textResponse);
 
-            // 2. Bikin Gambar AI Otomatis dari Keyword AI (Menggunakan Pollinations AI Gratis)
             const generatedImageUrl = `[https://pollinations.ai/p/$](https://pollinations.ai/p/$){encodeURIComponent(q.image_keyword)}?width=800&height=500&seed=${Math.floor(Math.random() * 9999)}&nologo=true`;
-
-            const timeLimit = 30; // 30 detik timer per soal
+            const timeLimit = 30;
 
             const embed = new EmbedBuilder()
                 .setTitle(`🧩 AI Generated Quiz`)
@@ -68,12 +69,10 @@ export default {
                 );
             });
 
-            // Kirim soal kuis ke channel
             const msg = await channel.send({ embeds: [embed], components: [row] });
             await interaction.editReply({ content: "✅ Kuis AI berhasil dibuat dan dikirim ke channel!" });
 
             const answeredUsers = new Set();
-            const scores = new Map();
             const collector = msg.createMessageComponentCollector({ time: timeLimit * 1000 });
 
             collector.on('collect', async i => {
@@ -86,17 +85,13 @@ export default {
                 const chosenOpt = i.customId.split('_')[3];
 
                 if (chosenOpt === q.correct) {
-                    const currentScore = scores.get(i.user.id) || 0;
-                    scores.set(i.user.id, currentScore + 1);
-
-                    await i.reply({ content: `✅ **Benar sekali!** Kamu menjawab paling cepat/tepat.`, ephemeral: true });
+                    await i.reply({ content: `✅ **Benar sekali!** Jawaban kamu tepat.`, ephemeral: true });
                 } else {
                     await i.reply({ content: `❌ **Jawaban salah!**`, ephemeral: true });
                 }
             });
 
             collector.on('end', async () => {
-                // Kunci tombol kalau waktu habis
                 const disabledRow = new ActionRowBuilder();
                 q.options.forEach(opt => {
                     disabledRow.addComponents(
@@ -110,7 +105,7 @@ export default {
 
                 const timeUpEmbed = new EmbedBuilder()
                     .setTitle(`⏰ Waktu Habis!`)
-                    .setDescription(`Waktu menjawab telah selesai!\n\n🔑 **Kunci Jawaban:** Jawaban yang benar adalah **${q.correct}**.\n*${q.explanation}*`)
+                    .setDescription(`Waktu menjawab telah selesai!\n\n🔑 **Kunci Jawaban:** **${q.correct}**\n*${q.explanation}*`)
                     .setImage(generatedImageUrl)
                     .setColor(0xFFA500);
 
@@ -119,7 +114,7 @@ export default {
 
         } catch (error) {
             console.error("Error AI Quiz Generator:", error);
-            await interaction.editReply({ content: "❌ Gagal membuat kuis AI. Pastikan `GEMINI_API_KEY` di-setting dengan benar!" });
+            await interaction.editReply({ content: "❌ Gagal membuat kuis AI. Pastikan `GEMINI_API_KEY` sudah benar di Railway!" });
         }
     }
 };
