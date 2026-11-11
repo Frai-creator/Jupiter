@@ -1,168 +1,179 @@
-import { 
-    SlashCommandBuilder, 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle, 
-    ModalBuilder, 
-    TextInputBuilder, 
-    TextInputStyle, 
-    PermissionFlagsBits 
-} from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } from 'discord.js';
+
+let confessionCount = 730; 
+const CONFESSION_CHANNEL_ID = '1568818853583257636'; // Ganti pakai ID channel tujuan confession kamu
+const CHANNEL_LOG_ID = '1568826233125470309'; // Ganti pakai ID channel khusus log admin
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('confess')
-        .setDescription('Kirim panel confess rahasia ke channel ini')
+        .setName('setup-confess')
+        .setDescription('Kirim panel tombol confession ke channel ini')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        // Cek apakah perintah dijalankan melalui interaksi biasa atau tombol/modal
-        if (interaction.isChatInputCommand()) {
-            const embed = new EmbedBuilder()
-                .setTitle('💌 Anonymous Confession System')
-                .setDescription('Punya pesan rahasia, uneg-uneg, atau sesuatu yang ingin disampaikan secara anonim? \n\nKlik tombol di bawah untuk mengirim pesan rahasia!')
-                .setColor(0xFF69B4)
-                .setFooter({ text: 'Identitas pengirim dijamin 100% aman dan dirahasiakan.' });
+        if (!interaction.guild) {
+            await interaction.reply({ content: "Fitur ini cuma bisa dipakai di dalam server ya!", ephemeral: true });
+            return;
+        }
 
-            const row = new ActionRowBuilder().addComponents(
+        const embed = new EmbedBuilder()
+            .setTitle('💌 Anonymous Confession Wall')
+            .setDescription('Mau nyatain perasaan, kasih pesan rahasia, atau curhat tanpa ketahuan siapa pengirimnya?\n\nKlik tombol **"Submit a confession! 💌"** di bawah buat mulai kirim pesan rahasia kamu secara anonim! ✨')
+            .setColor(0xFFB6C1)
+            .setFooter({ text: 'Pesan kamu dijamin aman dan anonim!' });
+
+        const row = new ActionRowBuilder()
+            .addComponents(
                 new ButtonBuilder()
-                    .setCustomId('confess_btn_open')
+                    .setCustomId('open_confess_modal_clean')
                     .setLabel('Submit a confession!')
-                    .setStyle(ButtonStyle.Primary)
                     .setEmoji('💌')
+                    .setStyle(ButtonStyle.Primary),
             );
 
-            await interaction.channel.send({ embeds: [embed], components: [row] });
-            await interaction.reply({ content: '✅ Panel confess berhasil dikirim ke channel ini!', ephemeral: true });
-        }
-    },
+        await interaction.reply({ content: "Berhasil membuat panel confession!", ephemeral: true });
+        const panelMessage = await interaction.channel.send({ embeds: [embed], components: [row] });
 
-    // Handler otomatis yang langsung ngebaca klik tombol & modal khusus file ini
-    async handleInteraction(interaction) {
-        const LOG_CHANNEL_ID = '1568826233125470309'; // Ganti dengan ID channel log kamu
-        const logChannel = interaction.client.channels.cache.get(LOG_CHANNEL_ID);
+        // Global listener buat nangkep semua tombol & modal
+        interaction.client.on('interactionCreate', async i => {
+            try {
+                // 1. Ketika tombol "Submit a confession!" diklik (baik dari panel atau dari bawah pesan confession)
+                if (i.isButton() && i.customId === 'open_confess_modal_clean') {
+                    const modal = new ModalBuilder()
+                        .setCustomId('confess_modal_clean')
+                        .setTitle('Kirim Anonymous Confession');
 
-        try {
-            // 1. Saat tombol "Submit a confession!" diklik
-            if (interaction.isButton() && interaction.customId === 'confess_btn_open') {
-                const modal = new ModalBuilder()
-                    .setCustomId('confess_modal_submit')
-                    .setTitle('Kirim Pesan Confess');
+                    const confessInput = new TextInputBuilder()
+                        .setCustomId('confess_message_clean')
+                        .setLabel('Tulis pesan confession kamu di sini:')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Tulis pesan rahasiamu di sini...')
+                        .setRequired(true)
+                        .setMaxLength(1000);
 
-                const messageInput = new TextInputBuilder()
-                    .setCustomId('confess_text_input')
-                    .setLabel('Apa isi pesan rahasiamu?')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setPlaceholder('Tulis pesan rahasia kamu di sini...')
-                    .setRequired(true);
+                    const modalRow = new ActionRowBuilder().addComponents(confessInput);
+                    modal.addComponents(modalRow);
 
-                modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
-                return await interaction.showModal(modal);
-            }
-
-            // 2. Saat tombol "Reply" pada pesan confess diklik
-            if (interaction.isButton() && interaction.customId.startsWith('confess_btn_reply_')) {
-                const confessId = interaction.customId.split('_')[3];
-
-                const modal = new ModalBuilder()
-                    .setCustomId(`confess_modal_reply_${confessId}`)
-                    .setTitle(`Balas Confess (#${confessId})`);
-
-                const replyInput = new TextInputBuilder()
-                    .setCustomId('confess_reply_text_input')
-                    .setLabel('Tulis balasan anonimmu:')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setPlaceholder('Ketik balasan di sini...')
-                    .setRequired(true);
-
-                modal.addComponents(new ActionRowBuilder().addComponents(replyInput));
-                return await interaction.showModal(modal);
-            }
-
-            // 3. Saat modal kirim confess di-submit
-            if (interaction.isModalSubmit() && interaction.customId === 'confess_modal_submit') {
-                await interaction.deferReply({ ephemeral: true });
-
-                const confessText = interaction.fields.getTextInputValue('confess_text_input');
-                const confessNumber = Math.floor(Math.random() * 900) + 100; // Nomor unik confess
-
-                const confessEmbed = new EmbedBuilder()
-                    .setTitle(`Anonymous Confession (#${confessNumber})`)
-                    .setDescription(`"${confessText}"`)
-                    .setColor(0x9B59B6)
-                    .setTimestamp();
-
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('confess_btn_open')
-                        .setLabel('Submit a confession!')
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji('💌'),
-                    new ButtonBuilder()
-                        .setCustomId(`confess_btn_reply_${confessNumber}`)
-                        .setLabel('Reply')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('💬')
-                );
-
-                const sentMessage = await interaction.channel.send({ embeds: [confessEmbed], components: [row] });
-
-                // Kirim log ke channel admin
-                if (logChannel) {
-                    const logEmbed = new EmbedBuilder()
-                        .setTitle(`🔍 Log Confess Baru (#${confessNumber})`)
-                        .addFields(
-                            { name: 'Pengirim Asli', value: `${interaction.user.tag} (<@${interaction.user.id}>)`, inline: false },
-                            { name: 'Isi Pesan', value: confessText, inline: false },
-                            { name: 'ID Pesan Publik', value: sentMessage.id, inline: true }
-                        )
-                        .setColor(0xFFA500)
-                        .setTimestamp();
-
-                    await logChannel.send({ embeds: [logEmbed] });
+                    await i.showModal(modal);
                 }
 
-                return await interaction.editReply({ content: '✅ Pesan confess kamu berhasil dikirim secara anonim!' });
-            }
+                // 2. Submit Modal Confession Utama
+                if (i.isModalSubmit() && i.customId === 'confess_modal_clean') {
+                    await i.deferUpdate();
 
-            // 4. Saat modal reply confess di-submit (LOG BALASAN)
-            if (interaction.isModalSubmit() && interaction.customId.startsWith('confess_modal_reply_')) {
-                await interaction.deferReply({ ephemeral: true });
+                    const pesan = i.fields.getTextInputValue('confess_message_clean');
+                    const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
+                    const logChannel = i.client.channels.cache.get(CHANNEL_LOG_ID);
 
-                const confessId = interaction.customId.split('_')[3];
-                const replyText = interaction.fields.getTextInputValue('confess_reply_text_input');
+                    if (!targetChannel) return;
 
-                const replyEmbed = new EmbedBuilder()
-                    .setTitle(`Confess Replies (#${confessId})`)
-                    .setDescription(`> 👤 **Anonymous Reply:** ${replyText}`)
-                    .setColor(0x3498DB)
-                    .setTimestamp();
+                    confessionCount++;
 
-                await interaction.channel.send({ embeds: [replyEmbed] });
+                    const confessEmbed = new EmbedBuilder()
+                        .setTitle(`Anonymous Confession (#${confessionCount})`)
+                        .setDescription(`"${pesan}"`)
+                        .setColor(0x2b2d31);
 
-                // Kirim log balasan ke channel admin
-                if (logChannel) {
-                    const replyLogEmbed = new EmbedBuilder()
-                        .setTitle(`💬 Log Balasan Confess (#${confessId})`)
-                        .addFields(
-                            { name: 'Pembuat Balasan (Asli)', value: `${interaction.user.tag} (<@${interaction.user.id}>)`, inline: false },
-                            { name: 'Isi Balasan', value: replyText, inline: false }
-                        )
-                        .setColor(0x00FFCC)
-                        .setTimestamp();
+                    const rowButton = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('open_confess_modal_clean')
+                                .setLabel('Submit a confession!')
+                                .setEmoji('💌')
+                                .setStyle(ButtonStyle.Primary),
+                            new ButtonBuilder()
+                                .setCustomId(`open_reply_modal_${confessionCount}`)
+                                .setLabel('Reply')
+                                .setEmoji('💬')
+                                .setStyle(ButtonStyle.Secondary),
+                        );
 
-                    await logChannel.send({ embeds: [replyLogEmbed] });
+                    const sentMessage = await targetChannel.send({ embeds: [confessEmbed], components: [rowButton] });
+
+                    await sentMessage.startThread({
+                        name: `Confession Replies (#${confessionCount})`,
+                        autoArchiveDuration: 1440,
+                    });
+
+                    // Kirim log ke channel admin
+                    if (logChannel) {
+                        const logEmbed = new EmbedBuilder()
+                            .setTitle(`📋 Confession Log (#${confessionCount})`)
+                            .addFields(
+                                { name: '👤 Pengirim Asli', value: `${i.user.tag} (${i.user.id})`, inline: false },
+                                { name: '💬 Isi Pesan', value: `"${pesan}"`, inline: false }
+                            )
+                            .setColor(0xFFA500)
+                            .setTimestamp();
+
+                        await logChannel.send({ embeds: [logEmbed] });
+                    }
                 }
 
-                return await interaction.editReply({ content: '✅ Balasan anonim kamu berhasil dikirim!' });
-            }
+                // 3. Ketika tombol "Reply" diklik
+                if (i.isButton() && i.customId.startsWith('open_reply_modal_')) {
+                    const confNum = i.customId.split('_')[3];
 
-        } catch (error) {
-            console.error('Error confess handler:', error);
-            if (interaction.deferred || interaction.replied) {
-                await interaction.editReply({ content: '❌ Terjadi kesalahan saat memproses interaksi.' }).catch(() => {});
+                    const replyModal = new ModalBuilder()
+                        .setCustomId(`reply_submit_modal_${confNum}`)
+                        .setTitle(`Reply to Confession #${confNum}`);
+
+                    const replyInput = new TextInputBuilder()
+                        .setCustomId('reply_message')
+                        .setLabel('Tulis balasan kamu di sini:')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Tulis balasan rahasiamu...')
+                        .setRequired(true)
+                        .setMaxLength(1000);
+
+                    const replyRow = new ActionRowBuilder().addComponents(replyInput);
+                    replyModal.addComponents(replyRow);
+
+                    await i.showModal(replyModal);
+                }
+
+                // 4. Ketika Modal Reply di-submit (DITAMBAHKAN LOG DI SINI)
+                if (i.isModalSubmit() && i.customId.startsWith('reply_submit_modal_')) {
+                    await i.deferUpdate();
+
+                    const confNum = i.customId.split('_')[3];
+                    const replyText = i.fields.getTextInputValue('reply_message');
+                    const targetChannel = i.client.channels.cache.get(CONFESSION_CHANNEL_ID);
+                    const logChannel = i.client.channels.cache.get(CHANNEL_LOG_ID);
+
+                    if (!targetChannel) return;
+
+                    const fetchedThreads = await targetChannel.threads.fetchActive();
+                    let targetThread = fetchedThreads.threads.find(th => th.name === `Confession Replies (#${confNum})`);
+
+                    if (!targetThread) {
+                        const archivedThreads = await targetChannel.threads.fetchArchived();
+                        targetThread = archivedThreads.threads.find(th => th.name === `Confession Replies (#${confNum})`);
+                    }
+
+                    if (targetThread) {
+                        await targetThread.send({
+                            content: `💬 **Anonymous Reply:**\n> ${replyText}`
+                        });
+                    }
+
+                    // Kirim log balasan ke channel admin
+                    if (logChannel) {
+                        const replyLogEmbed = new EmbedBuilder()
+                            .setTitle(`💬 Reply Log (#${confNum})`)
+                            .addFields(
+                                { name: '👤 Pembuat Balasan (Asli)', value: `${i.user.tag} (${i.user.id})`, inline: false },
+                                { name: '📝 Isi Balasan', value: `"${replyText}"`, inline: false }
+                            )
+                            .setColor(0x3498DB)
+                            .setTimestamp();
+
+                        await logChannel.send({ embeds: [replyLogEmbed] });
+                    }
+                }
+            } catch (error) {
+                console.error("Error interaction handler:", error);
             }
-        }
+        });
     }
 };
