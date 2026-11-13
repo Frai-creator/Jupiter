@@ -19,7 +19,7 @@ function formatDuration(seconds) {
 export default {
     data: new SlashCommandBuilder()
         .setName('profile')
-        .setDescription('Menampilkan profil musik ala Jockie Music')
+        .setDescription('Menampilkan kartu statistik musik bersih ala Jockie Music')
         .addUserOption(option => 
             option.setName('user').setDescription('Pilih user').setRequired(false)
         ),
@@ -34,7 +34,10 @@ export default {
         }
         const userData = db[userId] || { servers: {}, tracks: {}, friends: {} };
 
-        // 1. Top Servers
+        // Nomor kotak hijau ala Jockie (bisa pakai emoji 1️⃣ 2️⃣ 3️⃣ atau kotak teks)
+        const numIcons = ['🟩', '🟩', '🟩']; // Atau pakai emoji angka
+
+        // 1. TOP SERVERS (Nama asli, gak di-hidden)
         const sortedServers = Object.entries(userData.servers || {})
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3);
@@ -42,11 +45,12 @@ export default {
         const topServersText = sortedServers.length > 0 
             ? sortedServers.map(([guildId, duration], index) => {
                 const guild = interaction.client.guilds.cache.get(guildId);
-                return `\`${index + 1}\` ${formatDuration(duration)} · ${guild ? guild.name : 'Hidden Server'}`;
+                const sName = guild ? guild.name : 'Unknown Server';
+                return `\` #${index + 1} \` **${formatDuration(duration)}** · ${sName}`;
               }).join('\n')
-            : '\`1\` Belum ada data';
+            : '\` #1 \` 0m · Belum ada data';
 
-        // 2. Top Friends
+        // 2. TOP FRIENDS (Nama asli user, gak di-hidden)
         const sortedFriends = Object.entries(userData.friends || {})
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3);
@@ -54,33 +58,34 @@ export default {
         const topFriendsText = sortedFriends.length > 0
             ? sortedFriends.map(([friendId, duration], index) => {
                 const friend = interaction.client.users.cache.get(friendId);
-                return `\`${index + 1}\` ${formatDuration(duration)} · ${friend ? friend.username : 'Hidden User'}`;
+                const fName = friend ? friend.username : 'Unknown User';
+                return `\` #${index + 1} \` **${formatDuration(duration)}** · ${fName}`;
               }).join('\n')
-            : '\`1\` Belum ada data teman';
+            : '\` #1 \` 0m · Belum ada teman';
 
-        // 3. Top Tracks
+        // 3. TOP TRACKS (Judul lagu asli)
         const sortedTracks = Object.entries(userData.tracks || {})
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3);
 
         const topTracksText = sortedTracks.length > 0
-            ? sortedTracks.map(([trackName, count], index) => `\`${index + 1}\` ${trackName}`).join('\n')
-            : '\`1\` Belum ada lagu diputar';
+            ? sortedTracks.map(([trackName, count], index) => `\` #${index + 1} \` ${trackName}`).join('\n')
+            : '\` #1 \` Belum ada lagu diputar';
 
-        // Embed dengan Layout Jockie Style (Inline untuk Servers & Friends)
+        // Embed Bersih & Elegan ala Jockie Music
         const profileEmbed = new EmbedBuilder()
-            .setColor(0x0E3A2F) // Hijau gelap elegan ala Jockie Music
+            .setColor(0x0E3A2F) // Hijau gelap khas Jockie
             .setAuthor({ 
-                name: `${targetUser.username} • Music Profile`, 
+                name: `${targetUser.username}`, 
                 iconURL: targetUser.displayAvatarURL({ dynamic: true }) 
             })
             .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 512 }))
             .addFields(
-                { name: '🏆 TOP SERVERS', value: topServersText, inline: true },
-                { name: '👥 TOP FRIENDS', value: topFriendsText, inline: true },
-                { name: '🎵 TOP TRACKS', value: topTracksText, inline: false }
+                { name: 'TOP SERVERS', value: topServersText, inline: true },
+                { name: 'TOP FRIENDS', value: topFriendsText, inline: true },
+                { name: 'TOP TRACKS', value: topTracksText, inline: false }
             )
-            .setFooter({ text: 'JOCKIE MUSIC STYLE • Jupiter Audio' })
+            .setFooter({ text: 'JOCKIE MUSIC • Jupiter' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [profileEmbed] });
