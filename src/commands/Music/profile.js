@@ -17,7 +17,6 @@ function formatDuration(seconds) {
     return `${minutes}m`;
 }
 
-// Helper untuk membuat kotak rounded
 function roundRect(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -32,7 +31,6 @@ function roundRect(ctx, x, y, width, height, radius) {
     ctx.closePath();
 }
 
-// Helper memotong teks kepanjangan
 function truncateText(ctx, text, maxWidth) {
     if (ctx.measureText(text).width <= maxWidth) return text;
     let truncated = text;
@@ -48,16 +46,16 @@ async function generateProfileCard(client, targetUser, userData) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
-    // 1. Background Hijau Gelap Gradien ala Jockie Music
+    // 1. Background Biru Gelap Gradien (Elegan & Modern)
     const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-    bgGrad.addColorStop(0, '#0D2B24');
-    bgGrad.addColorStop(1, '#123D33');
+    bgGrad.addColorStop(0, '#0B192C');
+    bgGrad.addColorStop(1, '#1E3E62');
     roundRect(ctx, 0, 0, width, height, 24);
     ctx.fillStyle = bgGrad;
     ctx.fill();
 
-    // Watermark Badge Kanan Atas
-    ctx.fillStyle = '#186A54';
+    // Badge Kanan Atas (Biru Terang)
+    ctx.fillStyle = '#008DDA';
     roundRect(ctx, width - 210, 24, 180, 32, 6);
     ctx.fill();
     ctx.fillStyle = '#FFFFFF';
@@ -66,7 +64,7 @@ async function generateProfileCard(client, targetUser, userData) {
     ctx.fillText('JUPITER MUSIC', width - 120, 45);
     ctx.textAlign = 'left';
 
-    // 2. Avatar Bulat + Border Hijau Tosca
+    // 2. Avatar User + Border Biru Muda (Cyan)
     const avatarX = 45;
     const avatarY = 30;
     const avatarSize = 100;
@@ -82,70 +80,68 @@ async function generateProfileCard(client, targetUser, userData) {
         const avatarImg = await loadImage(avatarURL);
         ctx.drawImage(avatarImg, avatarX, avatarY, avatarSize, avatarSize);
     } catch {
-        ctx.fillStyle = '#1D5E4E';
+        ctx.fillStyle = '#145DA0';
         ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
     }
     ctx.restore();
 
     ctx.lineWidth = 4;
-    ctx.strokeStyle = '#1DB98B';
+    ctx.strokeStyle = '#41C9E2'; // Border Cyan Terang
     ctx.beginPath();
     ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Username
-    ctx.fillStyle = '#E6F4F1';
-    ctx.font = 'bold 30px sans-serif';
-    ctx.fillText(targetUser.username, 170, 82);
+    // Username & Subtitle
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillText(targetUser.username, 170, 78);
 
-    ctx.fillStyle = '#7FBFB0';
-    ctx.font = '16px sans-serif';
-    ctx.fillText('Audio & Voice Activity Profile', 170, 110);
+    ctx.fillStyle = '#94O8B0'; // Soft Blue/Cyan Accent
+    ctx.fillStyle = '#A6F1E0'; 
+    ctx.font = '15px sans-serif';
+    ctx.fillText('Audio & Voice Activity Profile', 170, 106);
 
-    // 3. Kotak Panel Kiri (TOP SERVERS) & Kanan (TOP FRIENDS)
+    // 3. Panel Kotak Container (Biru Transparan)
     const boxY = 155;
     const boxHeight = 165;
     const halfWidth = 395;
 
-    // Panel Kiri
-    ctx.fillStyle = 'rgba(8, 24, 20, 0.55)';
-    roundRect(ctx, 40, boxY, halfWidth, boxHeight, 12);
+    ctx.fillStyle = 'rgba(15, 32, 67, 0.65)';
+    roundRect(ctx, 40, boxY, halfWidth, boxHeight, 12); // Panel Kiri (Servers)
     ctx.fill();
 
-    // Panel Kanan
-    roundRect(ctx, 465, boxY, halfWidth, boxHeight, 12);
+    roundRect(ctx, 465, boxY, halfWidth, boxHeight, 12); // Panel Kanan (Friends)
     ctx.fill();
 
-    // Panel Bawah (TOP TRACKS)
     const bottomY = 340;
     const bottomHeight = 155;
-    roundRect(ctx, 40, bottomY, 820, bottomHeight, 12);
+    roundRect(ctx, 40, bottomY, 820, bottomHeight, 12); // Panel Bawah (Tracks)
     ctx.fill();
 
-    // Header Teks Setiap Panel
-    ctx.fillStyle = '#B8DCD3';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('TOP SERVERS', 60, boxY + 30);
-    ctx.fillText('TOP FRIENDS', 485, boxY + 30);
-    ctx.fillText('TOP TRACKS', 60, bottomY + 30);
+    // Judul Panel (Warna Biru Muda)
+    ctx.fillStyle = '#41C9E2';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('TOP SERVERS', 60, boxY + 28);
+    ctx.fillText('TOP FRIENDS', 485, boxY + 28);
+    ctx.fillText('TOP TRACKS', 60, bottomY + 28);
 
-    // Siapkan Data 1 - 3
+    // Data Sumber
     const sortedServers = Object.entries(userData.servers || {}).sort((a, b) => b[1] - a[1]);
     const sortedFriends = Object.entries(userData.friends || {}).sort((a, b) => b[1] - a[1]);
     const sortedTracks = Object.entries(userData.tracks || {}).sort((a, b) => b[1] - a[1]);
 
-    // Render Baris Item
     for (let i = 0; i < 3; i++) {
         const rowOffset = i * 38;
-        const badgeColor = i === 0 ? '#1DB98B' : '#23473E';
+        // Kotak nomor urut: Peringkat 1 Biru Terang (Cyan), 2-3 Biru Sedang
+        const badgeColor = i === 0 ? '#008DDA' : '#145DA0';
 
-        // --- TOP SERVERS (Kiri) ---
-        const sy = boxY + 46 + rowOffset;
+        // --- TOP SERVERS ---
+        const sy = boxY + 44 + rowOffset;
         ctx.fillStyle = badgeColor;
         roundRect(ctx, 60, sy, 26, 26, 5);
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 14px sans-serif';
+        ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`${i + 1}`, 73, sy + 18);
         ctx.textAlign = 'left';
@@ -156,16 +152,16 @@ async function generateProfileCard(client, targetUser, userData) {
             const guild = client.guilds.cache.get(gId);
             serverLabel = `${formatDuration(dur)} · ${guild ? guild.name : 'Unknown Server'}`;
         }
-        ctx.fillStyle = '#DCECE8';
-        ctx.font = '15px sans-serif';
-        ctx.fillText(truncateText(ctx, serverLabel, 320), 98, sy + 18);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(truncateText(ctx, serverLabel, 310), 98, sy + 18);
 
-        // --- TOP FRIENDS (Kanan) ---
+        // --- TOP FRIENDS ---
         ctx.fillStyle = badgeColor;
         roundRect(ctx, 485, sy, 26, 26, 5);
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 14px sans-serif';
+        ctx.font = 'bold 13px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`${i + 1}`, 498, sy + 18);
         ctx.textAlign = 'left';
@@ -176,17 +172,17 @@ async function generateProfileCard(client, targetUser, userData) {
             const friend = client.users.cache.get(fId);
             friendLabel = `${formatDuration(dur)} · ${friend ? friend.username : 'Unknown User'}`;
         }
-        ctx.fillStyle = '#DCECE8';
-        ctx.font = '15px sans-serif';
-        ctx.fillText(truncateText(ctx, friendLabel, 320), 523, sy + 18);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(truncateText(ctx, friendLabel, 310), 523, sy + 18);
 
-        // --- TOP TRACKS (Bawah) ---
-        const ty = bottomY + 44 + (i * 34);
+        // --- TOP TRACKS ---
+        const ty = bottomY + 42 + (i * 34);
         ctx.fillStyle = badgeColor;
         roundRect(ctx, 60, ty, 24, 24, 5);
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 13px sans-serif';
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`${i + 1}`, 72, ty + 17);
         ctx.textAlign = 'left';
@@ -194,11 +190,11 @@ async function generateProfileCard(client, targetUser, userData) {
         let trackLabel = 'Belum ada lagu diputar';
         if (sortedTracks[i]) {
             const [tName, count] = sortedTracks[i];
-            trackLabel = `${count}x · ${tName}`;
+            trackLabel = `${count}x pemutaran · ${tName}`;
         }
-        ctx.fillStyle = '#DCECE8';
-        ctx.font = '15px sans-serif';
-        ctx.fillText(truncateText(ctx, trackLabel, 740), 96, ty + 17);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(truncateText(ctx, trackLabel, 730), 96, ty + 17);
     }
 
     return canvas.toBuffer('image/png');
@@ -207,7 +203,7 @@ async function generateProfileCard(client, targetUser, userData) {
 export default {
     data: new SlashCommandBuilder()
         .setName('profile')
-        .setDescription('Menampilkan kartu statistik musik landscape ala Jockie Music')
+        .setDescription('Menampilkan kartu statistik musik landscape bernuansa biru muda')
         .addUserOption(option =>
             option.setName('user').setDescription('Pilih user').setRequired(false)
         ),
@@ -227,21 +223,5 @@ export default {
         const attachment = new AttachmentBuilder(buffer, { name: 'music-profile.png' });
 
         await interaction.editReply({ files: [attachment] });
-    },
-
-    async executePrefix(message) {
-        const targetUser = message.mentions.users.first() || message.author;
-        const userId = targetUser.id;
-
-        let db = {};
-        if (fs.existsSync(AUDIO_DB_PATH)) {
-            db = JSON.parse(fs.readFileSync(AUDIO_DB_PATH, 'utf8'));
-        }
-        const userData = db[userId] || { servers: {}, tracks: {}, friends: {} };
-
-        const buffer = await generateProfileCard(message.client, targetUser, userData);
-        const attachment = new AttachmentBuilder(buffer, { name: 'music-profile.png' });
-
-        return message.channel.send({ files: [attachment] });
     }
 };
