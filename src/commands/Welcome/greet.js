@@ -1,8 +1,11 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError, TitanBotError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
+import greetDashboard from './modules/greet_dashboard.js';
 
 export default {
+    slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('greet')
         .setDescription('Manage welcome & goodbye settings')
@@ -19,13 +22,14 @@ export default {
                 return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the **Manage Server** permission to use `/greet`.' });
             }
 
-            const embed = new EmbedBuilder()
-                .setTitle('👋 Welcome & Goodbye Dashboard')
-                .setDescription('Panel konfigurasi welcome & goodbye berhasil dibuka!')
-                .setColor(0x008DDA)
-                .setTimestamp();
+            const subcommand = interaction.options.getSubcommand();
 
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            switch (subcommand) {
+                case 'dashboard':
+                    return await greetDashboard.execute(interaction, config, client);
+                default:
+                    logger.warn(`Unknown /greet subcommand: ${subcommand}`);
+            }
         } catch (error) {
             if (error instanceof TitanBotError) {
                 return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: error.userMessage || 'Something went wrong.' });
@@ -33,23 +37,4 @@ export default {
             await handleInteractionError(interaction, error, { command: 'greet' });
         }
     },
-
-    async executePrefix(message, args, client, prefix, guildConfig) {
-        try {
-            if (!message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                return message.reply('You need the **Manage Server** permission to use `greet`.');
-            }
-
-            const embed = new EmbedBuilder()
-                .setTitle('👋 Welcome & Goodbye Dashboard')
-                .setDescription('Panel konfigurasi welcome & goodbye berhasil dibuka via prefix!')
-                .setColor(0x008DDA)
-                .setTimestamp();
-
-            return await message.channel.send({ embeds: [embed] });
-        } catch (error) {
-            logger.error(`Error in prefix greet command: ${error.message}`);
-            await message.reply('Terjadi kesalahan saat memproses perintah greet.');
-        }
-    }
 };
