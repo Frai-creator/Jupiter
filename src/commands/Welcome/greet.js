@@ -1,10 +1,9 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError, TitanBotError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 import greetDashboard from './modules/greet_dashboard.js';
 
 export default {
-    // Jangan set slashOnly: true, biarkan false atau kosong agar support prefix
     data: new SlashCommandBuilder()
         .setName('greet')
         .setDescription('Manage welcome & goodbye settings')
@@ -37,15 +36,24 @@ export default {
         }
     },
 
-    // Tambahkan executePrefix agar langsung nembak ke greetDashboard.execute
+    // Handler Prefix Mandiri (Aman dari error adapter)
     async executePrefix(message, args, client, prefix, guildConfig) {
         try {
             if (!message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
                 return message.reply('You need the **Manage Server** permission to use `greet`.');
             }
 
-            // Langsung eksekusi dashboard tanpa ribet ngecek subcommand berlapis
-            return await greetDashboard.execute(message, guildConfig, client);
+            // Kirim respon langsung lewat prefix message
+            const embed = new EmbedBuilder()
+                .setTitle('👋 Welcome & Goodbye Dashboard')
+                .setDescription('Silakan gunakan Slash Command untuk konfigurasi interaktif yang lengkap:')
+                .addFields(
+                    { name: 'Command Utama', value: '`/greet dashboard`', inline: false }
+                )
+                .setColor(0x008DDA)
+                .setTimestamp();
+
+            return await message.channel.send({ embeds: [embed] });
         } catch (error) {
             logger.error(`Error in prefix greet command: ${error.message}`);
             await message.reply('Terjadi kesalahan saat memproses perintah greet.');
