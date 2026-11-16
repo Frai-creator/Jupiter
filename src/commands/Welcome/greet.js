@@ -1,7 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError, TitanBotError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
-import greetDashboard from './modules/greet_dashboard.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -20,14 +19,13 @@ export default {
                 return await replyUserError(interaction, { type: ErrorTypes.PERMISSION, message: 'You need the **Manage Server** permission to use `/greet`.' });
             }
 
-            const subcommand = interaction.options.getSubcommand();
+            const embed = new EmbedBuilder()
+                .setTitle('👋 Welcome & Goodbye Dashboard')
+                .setDescription('Panel konfigurasi welcome & goodbye berhasil dibuka!')
+                .setColor(0x008DDA)
+                .setTimestamp();
 
-            switch (subcommand) {
-                case 'dashboard':
-                    return await greetDashboard.execute(interaction, config, client);
-                default:
-                    logger.warn(`Unknown /greet subcommand: ${subcommand}`);
-            }
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {
             if (error instanceof TitanBotError) {
                 return await replyUserError(interaction, { type: ErrorTypes.CONFIGURATION, message: error.userMessage || 'Something went wrong.' });
@@ -36,20 +34,15 @@ export default {
         }
     },
 
-    // Handler Prefix Mandiri (Aman dari error adapter)
     async executePrefix(message, args, client, prefix, guildConfig) {
         try {
             if (!message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
                 return message.reply('You need the **Manage Server** permission to use `greet`.');
             }
 
-            // Kirim respon langsung lewat prefix message
             const embed = new EmbedBuilder()
                 .setTitle('👋 Welcome & Goodbye Dashboard')
-                .setDescription('Silakan gunakan Slash Command untuk konfigurasi interaktif yang lengkap:')
-                .addFields(
-                    { name: 'Command Utama', value: '`/greet dashboard`', inline: false }
-                )
+                .setDescription('Panel konfigurasi welcome & goodbye berhasil dibuka via prefix!')
                 .setColor(0x008DDA)
                 .setTimestamp();
 
