@@ -1,11 +1,10 @@
-import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
-import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 import { handleInteractionError, TitanBotError, ErrorTypes, replyUserError } from '../../utils/errorHandler.js';
 import greetDashboard from './modules/greet_dashboard.js';
 
 export default {
-    slashOnly: false, // Ubah jadi false agar bisa support prefix
+    // Jangan set slashOnly: true, biarkan false atau kosong agar support prefix
     data: new SlashCommandBuilder()
         .setName('greet')
         .setDescription('Manage welcome & goodbye settings')
@@ -38,26 +37,18 @@ export default {
         }
     },
 
-    // Tambahan handler untuk Prefix Command (misal: a!greet dashboard)
-    async executePrefix(message, args, config, client) {
+    // Tambahkan executePrefix agar langsung nembak ke greetDashboard.execute
+    async executePrefix(message, args, client, prefix, guildConfig) {
         try {
-            // Cek izin Manage Guild untuk user yang pakai prefix
             if (!message.member?.permissions.has(PermissionFlagsBits.ManageGuild)) {
                 return message.reply('You need the **Manage Server** permission to use `greet`.');
             }
 
-            const sub = args[0] ? args[0].toLowerCase() : 'dashboard'; // Default ke dashboard kalau kosong
-
-            if (sub === 'dashboard') {
-                // Karena modul greetDashboard biasanya butuh interaksi/message, 
-                // kita sesuaikan pemanggilannya agar kompatibel dengan objek message
-                return await greetDashboard.execute(message, config, client);
-            } else {
-                return message.reply('Subcommand tidak valid. Gunakan: `!greet dashboard`');
-            }
+            // Langsung eksekusi dashboard tanpa ribet ngecek subcommand berlapis
+            return await greetDashboard.execute(message, guildConfig, client);
         } catch (error) {
             logger.error(`Error in prefix greet command: ${error.message}`);
-            await message.reply('Terjadi kesalahan saat memproses perintah.');
+            await message.reply('Terjadi kesalahan saat memproses perintah greet.');
         }
     }
 };
