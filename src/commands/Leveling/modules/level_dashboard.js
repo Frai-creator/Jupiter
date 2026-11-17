@@ -22,6 +22,8 @@ import { logger } from '../../../utils/logger.js';
 import { TitanBotError, ErrorTypes, replyUserError } from '../../../utils/errorHandler.js';
 import { getLevelingConfig, saveLevelingConfig } from '../../../services/leveling/leveling.js';
 import { botHasPermission } from '../../../utils/permissionGuard.js';
+import { renderTemplate } from '../../../services/leveling/levelConfig.js';
+import { MAX_LEVEL } from '../../../services/leveling/levelMath.js';
 import { startDashboardSession } from '../../../utils/dashboardSession.js';
 
 function buildDashboardEmbed(cfg, guild) {
@@ -53,8 +55,8 @@ function buildDashboardEmbed(cfg, guild) {
             { name: 'Announcements', value: cfg.announceLevelUp !== false ? '**Enabled**' : '**Disabled**', inline: true },
             { name: 'XP per Message', value: `\`${xpMin} – ${xpMax}\``, inline: true },
             { name: 'XP Cooldown', value: `\`${cooldown}s\``, inline: true },
-            { name: '\u200B', value: '\u200B', inline: true },
-            { name: 'Level-up Message', value: msgPreview, inline: false },
+            { name: 'Reward Mode', value: cfg.roleRewardMode === 'replace' ? '**Replace** (highest only)' : '**Stack** (keep all)', inline: true },
+            { name: `Level-up Message (${cfg.levelUpStyle === 'text' ? 'plain text' : 'embed'})`, value: msgPreview, inline: false },
             { name: 'Role Rewards', value: rewardsValue, inline: false },
             { name: 'Ignored Channels', value: ignoredChValue, inline: true },
             { name: 'Ignored Roles', value: ignoredRoValue, inline: true },
@@ -127,6 +129,18 @@ function buildButtonRow(cfg, guildId, disabled = false) {
             .setStyle(systemOn ? ButtonStyle.Success : ButtonStyle.Danger)
             .setEmoji('⚡')
             .setDisabled(disabled),
+        new ButtonBuilder()
+            .setCustomId(`level_cfg_toggle_style_${guildId}`)
+            .setLabel(cfg.levelUpStyle === 'text' ? 'Style: Text' : 'Style: Embed')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🎨')
+            .setDisabled(disabled),
+        new ButtonBuilder()
+            .setCustomId(`level_cfg_toggle_mode_${guildId}`)
+            .setLabel(cfg.roleRewardMode === 'replace' ? 'Rewards: Replace' : 'Rewards: Stack')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🏅')
+            .setDisabled(disabled),
     );
 }
 
@@ -166,7 +180,9 @@ export default {
                 selectMenuId: `level_cfg_${guildId}`,
                 buttonMatcher: (customId) =>
                     customId === `level_cfg_toggle_announce_${guildId}` ||
-                    customId === `level_cfg_toggle_system_${guildId}`,
+                    customId === `level_cfg_toggle_system_${guildId}` ||
+                    customId === `level_cfg_toggle_style_${guildId}` ||
+                    customId === `level_cfg_toggle_mode_${guildId}`,
                 onSelect: async (selectInteraction) => {
                     const selectedOption = selectInteraction.values[0];
                     switch (selectedOption) {
@@ -198,34 +214,35 @@ export default {
                 },
                 onButton: async (btnInteraction) => {
                     await btnInteraction.deferUpdate().catch(() => null);
-                    const isAnnounce = btnInteraction.customId === `level_cfg_toggle_announce_${guildId}`;
+                    const id = btnInteraction.customId;
+                    let title;
+                    let body;
 
-                    if (isAnnounce) {
+                    if (id === `level_cfg_toggle_announce_${guildId}`) {
                         cfg.announceLevelUp = cfg.announceLevelUp === false;
-                        await saveLevelingConfig(client, guildId, cfg);
-                        await btnInteraction.followUp({
-                            embeds: [
-                                successEmbed(
-                                    '✅ Announcements Updated',
-                                    `Level-up announcements are now **${cfg.announceLevelUp ? 'enabled' : 'disabled'}**.`,
-                                ),
-                            ],
-                            flags: MessageFlags.Ephemeral,
-                        });
+                        title = '✅ Announcements Updated';
+                        body = `Level-up announcements are now **${cfg.announceLevelUp ? 'enabled' : 'disabled'}**.`;
+                    } else if (id === `level_cfg_toggle_system_${guildId}`) {
+                        cfg.enabled = cfg.enabled === false;
+                        title = '✅ System Updated';
+                        body = `The leveling system is now **${cfg.enabled ? 'enabled' : 'disabled'}**.${!cfg.enabled ? '\nUsers will not earn XP until the system is re-enabled.' : ''}`;
+                    } else if (id === `level_cfg_toggle_style_${guildId}`) {
+                        cfg.levelUpStyle = cfg.levelUpStyle === 'text' ? 'embed' : 'text';
+                        title = '✅ Style Updated';
+                        body = `Level-up announcements will now be sent as **${cfg.levelUpStyle === 'text' ? 'plain text' : 'an embed with a progress bar'}**.`;
                     } else {
-                        const wasEnabled = cfg.enabled !== false;
-                        cfg.enabled = !wasEnabled;
-                        await saveLevelingConfig(client, guildId, cfg);
-                        await btnInteraction.followUp({
-                            embeds: [
-                                successEmbed(
-                                    '✅ System Updated',
-                                    `The leveling system is now **${cfg.enabled ? 'enabled' : 'disabled'}**.${!cfg.enabled ? '\nUsers will not earn XP until the system is re-enabled.' : ''}`,
-                                ),
-                            ],
-                            flags: MessageFlags.Ephemeral,
-                        });
+                        cfg.roleRewardMode = cfg.roleRewardMode === 'replace' ? 'stack' : 'replace';
+                        title = '✅ Reward Mode Updated';
+                        body = cfg.roleRewardMode === 'replace'
+                            ? 'Members now keep **only their highest** reward role; lower ones are removed when a new one is earned.'
+                            : 'Members now **keep every** reward role they have earned.';
                     }
+
+                    await saveLevelingConfig(client, guildId, cfg);
+                    await btnInteraction.followUp({
+                        embeds: [successEmbed(title, body)],
+                        flags: MessageFlags.Ephemeral,
+                    });
 
                     await refreshDashboard(interaction, cfg, guildId);
                 },
@@ -261,10 +278,10 @@ async function handleRoleRewardAdd(selectInteraction, rootInteraction, cfg, guil
 
     const levelInput = new TextInputBuilder()
         .setCustomId('reward_level')
-        .setLabel('Level required (1–500)')
+        .setLabel(`Level required (1–${MAX_LEVEL})`)
         .setStyle(TextInputStyle.Short)
         .setPlaceholder('10')
-        .setMaxLength(3)
+        .setMaxLength(4)
         .setMinLength(1)
         .setRequired(true);
 
@@ -285,8 +302,8 @@ async function handleRoleRewardAdd(selectInteraction, rootInteraction, cfg, guil
     const rawLevel = submitted.fields.getTextInputValue('reward_level').trim();
     const level = parseInt(rawLevel, 10);
 
-    if (isNaN(level) || level < 1 || level > 500) {
-        await replyUserError(submitted, { type: ErrorTypes.VALIDATION, message: 'Level must be a whole number between **1** and **500**.' });
+    if (isNaN(level) || level < 1 || level > MAX_LEVEL) {
+        await replyUserError(submitted, { type: ErrorTypes.VALIDATION, message: `Level must be a whole number between **1** and **${MAX_LEVEL}**.` });
         return;
     }
 
@@ -543,7 +560,7 @@ async function handleMessage(selectInteraction, rootInteraction, cfg, guildId, c
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('message_input')
-                    .setLabel('Message ({user} and {level} are available)')
+                    .setLabel('Message ({user} {level} {xp} {server}…)')
                     .setStyle(TextInputStyle.Paragraph)
                     .setValue(cfg.levelUpMessage || '{user} has leveled up to level {level}!')
                     .setMaxLength(500)
@@ -576,7 +593,7 @@ async function handleMessage(selectInteraction, rootInteraction, cfg, guildId, c
     cfg.levelUpMessage = newMessage;
     await saveLevelingConfig(client, guildId, cfg);
 
-    const preview = newMessage.replace('{user}', '@User').replace('{level}', '5');
+    const preview = renderTemplate(newMessage, { user: '@User', username: 'User', level: 5, oldLevel: 4, xp: 120, xpNeeded: 400, totalXp: 1520, server: rootInteraction.guild.name });
 
     await submitted.reply({
         embeds: [
