@@ -1,13 +1,28 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { logger } from '../../utils/logger.js';
-import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
-import { getLeaderboard, getLevelingConfig, getXpForLevel } from '../../services/leveling/leveling.js';
-
+import { getLeaderboardPage, getLevelingConfig, getUserRank } from '../../services/leveling/leveling.js';
+import { buildLeaderboardEmbed, buildDisabledEmbed } from '../../services/leveling/levelEmbeds.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+
+const PER_PAGE = 10;
+const IDLE_MS = 120_000;
+
+function buildButtons(id, page, totalPages, disabled = false) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`lb_first_${id}`).setEmoji('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(disabled || page <= 1),
+    new ButtonBuilder().setCustomId(`lb_prev_${id}`).setEmoji('◀️').setStyle(ButtonStyle.Primary).setDisabled(disabled || page <= 1),
+    new ButtonBuilder().setCustomId(`lb_next_${id}`).setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(disabled || page >= totalPages),
+    new ButtonBuilder().setCustomId(`lb_last_${id}`).setEmoji('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(disabled || page >= totalPages),
+  );
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('leaderboard')
     .setDescription("Shows the server's level leaderboard")
+    .addIntegerOption((option) =>
+      option.setName('page').setDescription('Page to open (default: 1)').setMinValue(1).setRequired(false),
+    )
     .setDMPermission(false),
   category: 'Leveling',
 
@@ -15,61 +30,63 @@ export default {
     await InteractionHelper.safeDefer(interaction);
 
     const levelingConfig = await getLevelingConfig(client, interaction.guildId);
-
-    if (!levelingConfig?.enabled) {
-      await InteractionHelper.safeEditReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#f1c40f')
-            .setDescription('The leveling system is currently disabled on this server.')
-        ],
-        flags: MessageFlags.Ephemeral
-      });
+    if (!levelingConfig.enabled) {
+      await InteractionHelper.safeEditReply(interaction, { embeds: [buildDisabledEmbed()] });
       return;
     }
 
-    const leaderboard = await getLeaderboard(client, interaction.guildId, 10);
+    const guildId = interaction.guildId;
+    const { rank: viewerRank } = await getUserRank(client, guildId, interaction.user.id);
 
-    if (leaderboard.length === 0) {
-      throw new TitanBotError(
-        'No leaderboard data found',
-        ErrorTypes.DATABASE,
-        'No level data found yet. Start chatting to gain XP!'
-      );
-    }
+    const render = async (requestedPage) => {
+      const pageData = await getLeaderboardPage(client, guildId, requestedPage, PER_PAGE);
+      return {
+        pageData,
+        payload: {
+          embeds: [buildLeaderboardEmbed({ guild: interaction.guild, pageData, perPage: PER_PAGE, viewerRank })],
+          components: pageData.totalPages > 1 ? [buildButtons(interaction.id, pageData.page, pageData.totalPages)] : [],
+        },
+      };
+    };
 
-    const embed = new EmbedBuilder()
-      .setTitle('Level Leaderboard')
-      .setColor('#2ecc71')
-      .setDescription("Top 10 most active members in this server:")
-      .setTimestamp();
+    let { pageData, payload } = await render(interaction.options.getInteger('page') ?? 1);
+    await InteractionHelper.safeEditReply(interaction, payload);
+    logger.debug(`Leaderboard displayed for guild ${guildId}`);
 
-    const leaderboardText = await Promise.all(
-      leaderboard.map(async (user, index) => {
-        try {
-          const member = await interaction.guild.members.fetch(user.userId).catch(() => null);
-          const userMention = member?.user.toString() || `<@${user.userId}>`;
-          const xpForNextLevel = getXpForLevel(user.level + 1);
+    if (pageData.totalPages <= 1) return;
 
-          let rankPrefix = `${index + 1}.`;
-          if (index === 0) rankPrefix = '🥇';
-          else if (index === 1) rankPrefix = '🥈';
-          else if (index === 2) rankPrefix = '🥉';
-          else rankPrefix = `**${index + 1}.**`;
+    const message = await interaction.fetchReply().catch(() => null);
+    if (!message?.createMessageComponentCollector) return;
 
-          return `${rankPrefix} ${userMention} - Level ${user.level} (${user.xp}/${xpForNextLevel} XP)`;
-        } catch {
-          return `**${index + 1}.** Error loading user ${user.userId}`;
-        }
-      })
-    );
-
-    embed.addFields({
-      name: 'Rankings',
-      value: leaderboardText.join('\n')
+    const collector = message.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      idle: IDLE_MS,
+      filter: (i) => i.customId.endsWith(`_${interaction.id}`) && i.customId.startsWith('lb_'),
     });
 
-    await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
-    logger.debug(`Leaderboard displayed for guild ${interaction.guildId}`);
-  }
+    collector.on('collect', async (i) => {
+      if (i.user.id !== interaction.user.id) {
+        await i.reply({ content: 'Only the person who opened this leaderboard can flip pages.', ephemeral: true }).catch(() => {});
+        return;
+      }
+
+      const action = i.customId.split('_')[1];
+      const target =
+        action === 'first' ? 1 : action === 'prev' ? pageData.page - 1 : action === 'next' ? pageData.page + 1 : pageData.totalPages;
+
+      try {
+        ({ pageData, payload } = await render(target));
+        await i.update(payload);
+      } catch (error) {
+        logger.error('Leaderboard pagination failed:', error);
+        await i.deferUpdate().catch(() => {});
+      }
+    });
+
+    collector.on('end', async () => {
+      await message
+        .edit({ components: [buildButtons(interaction.id, pageData.page, pageData.totalPages, true)] })
+        .catch(() => {});
+    });
+  },
 };

@@ -1,81 +1,25 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from 'discord.js';
-import { logger } from '../../utils/logger.js';
-import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
-import { checkUserPermissions } from '../../utils/permissionGuard.js';
-import { setUserLevel, getLevelingConfig } from '../../services/leveling/leveling.js';
-import { createEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { setUserLevel } from '../../services/leveling/leveling.js';
+import { runLevelAdminCommand } from '../../services/leveling/levelAdminCommand.js';
 
-import { InteractionHelper } from '../../utils/interactionHelper.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('levelset')
-    .setDescription("Set a user's level to a specific value")
-    .addUserOption((option) =>
-      option
-        .setName('user')
-        .setDescription('The user to set the level for')
-        .setRequired(true)
-    )
+    .setDescription("Set a member's level to a specific value")
+    .addUserOption((option) => option.setName('user').setDescription('The member to set the level for').setRequired(true))
     .addIntegerOption((option) =>
-      option
-        .setName('level')
-        .setDescription('The level to set')
-        .setRequired(true)
-        .setMinValue(0)
+      option.setName('level').setDescription('The level to set').setRequired(true).setMinValue(0).setMaxValue(1000),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false),
   category: 'Leveling',
 
   async execute(interaction, config, client) {
-    await InteractionHelper.safeDefer(interaction);
-
-    const hasPermission = await checkUserPermissions(
-      interaction,
-      PermissionFlagsBits.ManageGuild,
-      'You need ManageGuild permission to use this command.'
-    );
-    if (!hasPermission) return;
-
-    const levelingConfig = await getLevelingConfig(client, interaction.guildId);
-    if (!levelingConfig?.enabled) {
-      await InteractionHelper.safeEditReply(interaction, {
-        embeds: [
-          new EmbedBuilder()
-            .setColor('#f1c40f')
-            .setDescription('The leveling system is currently disabled on this server.')
-        ],
-        flags: MessageFlags.Ephemeral
-      });
-      return;
-    }
-
-    const targetUser = interaction.options.getUser('user');
-    const newLevel = interaction.options.getInteger('level');
-
-    const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
-    if (!member) {
-      throw new TitanBotError(
-        `User ${targetUser.id} not found in this guild`,
-        ErrorTypes.USER_INPUT,
-        'The specified user is not in this server.'
-      );
-    }
-
-    const userData = await setUserLevel(client, interaction.guildId, targetUser.id, newLevel);
-
-    await InteractionHelper.safeEditReply(interaction, {
-      embeds: [
-        createEmbed({
-          title: 'Level Set',
-          description: `Successfully set ${targetUser.tag}'s level to **${newLevel}**.\n**Total XP:** ${userData.totalXp}`,
-          color: 'success'
-        })
-      ]
+    await runLevelAdminCommand(interaction, client, {
+      title: '🎚️ Level Set',
+      readAmount: (i) => i.options.getInteger('level'),
+      apply: setUserLevel,
+      logVerb: 'set the level of',
     });
-
-    logger.info(
-      `[ADMIN] User ${interaction.user.tag} set ${targetUser.tag}'s level to ${newLevel} in guild ${interaction.guildId}`
-    );
-  }
+  },
 };
