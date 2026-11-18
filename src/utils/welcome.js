@@ -22,6 +22,33 @@ export function truncateForEmbedField(value, maxLength = 1024) {
     return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`;
 }
 
+export function ordinal(n) {
+    const num = Number(n) || 0;
+    const mod100 = num % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+    switch (num % 10) {
+        case 1: return `${num}st`;
+        case 2: return `${num}nd`;
+        case 3: return `${num}rd`;
+        default: return `${num}th`;
+    }
+}
+
+export function formatDuration(ms) {
+    const total = Math.max(0, Math.floor(Number(ms) || 0));
+    const minutes = Math.floor(total / 60000);
+    if (minutes < 1) return 'less than a minute';
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'}`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days === 1 ? '' : 's'}`;
+    const months = Math.floor(days / 30.4375);
+    if (months < 12) return `${months} month${months === 1 ? '' : 's'}`;
+    const years = Math.floor(days / 365.25);
+    return `${years} year${years === 1 ? '' : 's'}`;
+}
+
 export function formatWelcomeMessage(message, data) {
     
     if (typeof message !== 'string') return '';
@@ -52,7 +79,12 @@ export function formatWelcomeMessage(message, data) {
         '{guild.id}': guild?.id || 'unknown',
         '{guild.memberCount}': guild?.memberCount?.toString?.() || '0',
         '{memberCount}': guild?.memberCount?.toString?.() || '0',
-        '{membercount}': guild?.memberCount?.toString?.() || '0'
+        '{membercount}': guild?.memberCount?.toString?.() || '0',
+        '{memberCount.ordinal}': ordinal(guild?.memberCount),
+        '{displayName}': data?.member?.displayName || user?.displayName || user?.username || 'Unknown',
+        '{user.created}': user?.createdTimestamp ? `<t:${Math.floor(user.createdTimestamp / 1000)}:R>` : 'unknown',
+        '{joined}': data?.member?.joinedTimestamp ? `<t:${Math.floor(data.member.joinedTimestamp / 1000)}:R>` : 'unknown',
+        '{timeInServer}': data?.member?.joinedTimestamp ? formatDuration(Date.now() - data.member.joinedTimestamp) : 'unknown'
     };
 
     let result = message;
