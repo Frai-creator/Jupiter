@@ -347,7 +347,7 @@ function normalizeWelcomeConfig(raw = {}) {
     const leaveMessage = base.leaveMessage ?? "{user.tag} has left the server.";
 
     const welcomeEmbed = base.welcomeEmbed ?? {
-        title: "🎉 Welcome!",
+        title: "✨ Welcome to {server}!",
         description: "Welcome {user} to {server}!",
         color: getColor("success"),
         thumbnail: true,
@@ -355,7 +355,7 @@ function normalizeWelcomeConfig(raw = {}) {
     };
 
     const leaveEmbed = base.leaveEmbed ?? {
-        title: "👋 Goodbye",
+        title: "👋 Goodbye, {displayName}",
         description: "{user.tag} has left the server.",
         color: getColor("error"),
         thumbnail: true,
@@ -364,8 +364,26 @@ function normalizeWelcomeConfig(raw = {}) {
 
     const roleIds = Array.isArray(base.roleIds) ? base.roleIds : [];
 
+    // Canvas banner settings (theme keys: aurora, sunset, emerald, rose, ocean, midnight).
+    const welcomeCard = {
+        enabled: true,
+        theme: "aurora",
+        title: "WELCOME",
+        subtitle: "to {server}",
+        ...(typeof base.welcomeCard === "object" && base.welcomeCard !== null ? base.welcomeCard : {})
+    };
+    const leaveCard = {
+        enabled: true,
+        theme: "sunset",
+        title: "GOODBYE",
+        subtitle: "Thanks for being part of {server}",
+        ...(typeof base.leaveCard === "object" && base.leaveCard !== null ? base.leaveCard : {})
+    };
+
     return {
         ...base,
+        welcomeCard,
+        leaveCard,
         enabled: Boolean(base.enabled),
         channelId,
         welcomeMessage,
