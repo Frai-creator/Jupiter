@@ -6,6 +6,7 @@ import { getColor, botConfig } from '../config/bot.js';
 import { formatWelcomeMessage, formatDuration, ordinal } from '../utils/welcome.js';
 import { renderGreetCard, resolveTheme, CARD_THEMES } from '../utils/welcomeCard.js';
 import { logger } from '../utils/logger.js';
+import { getIntroConfig, introOpenRow } from './introductionService.js';
 
 // Titles that older versions saved as the default; treated as "not customised" so they pick up the new look.
 const LEGACY_DEFAULT_TITLES = new Set(['🎉 Welcome!', '👋 Goodbye']);
@@ -40,6 +41,18 @@ function backgroundUrl(cfg, kind) {
 
 function intColor(hex) {
     return parseInt(String(hex).replace('#', ''), 16);
+}
+
+// Adds the "Isi Formulir Introduction" button to welcome messages when the introduction system is set up.
+async function introComponents(kind, guild, preview) {
+    if (kind !== 'welcome' || preview || !guild?.id) return [];
+    try {
+        const intro = await getIntroConfig(guild.id);
+        return intro?.channelId ? [introOpenRow()] : [];
+    } catch (error) {
+        logger.debug(`[Greet] Could not load introduction config: ${error.message}`);
+        return [];
+    }
 }
 
 /**
@@ -97,6 +110,7 @@ export async function buildGreetPayload(kind, member, cfg, opts = {}) {
         }
     }
     const hasCard = files.length > 0;
+    const components = await introComponents(kind, guild, preview);
 
     // ── mentions ──
     const mention = user.toString();
@@ -108,6 +122,7 @@ export async function buildGreetPayload(kind, member, cfg, opts = {}) {
         return {
             content: [pingText && !message.includes(mention) ? pingText : null, message].filter(Boolean).join(' '),
             files,
+            components,
             allowedMentions,
         };
     }
@@ -157,7 +172,7 @@ export async function buildGreetPayload(kind, member, cfg, opts = {}) {
         if (staticImage) embed.setImage(staticImage);
     }
 
-    return { content: pingText, embeds: [embed], files, allowedMentions };
+    return { content: pingText, embeds: [embed], files, components, allowedMentions };
 }
 
 async function deliver(kind, member, cfg, channelId) {
