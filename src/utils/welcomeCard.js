@@ -24,11 +24,11 @@ export function resolveTheme(name, fallback = 'aurora') {
 }
 
 const FONT_FAMILY = 'JupiterInter';
-const FONT_STACK = `"${FONT_FAMILY}", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+export const FONT_STACK = `"${FONT_FAMILY}", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
 const FONT_DIR = fileURLToPath(new URL('../../assets/fonts/', import.meta.url));
 
 let fontsReady = false;
-function ensureFonts() {
+export function ensureFonts() {
     if (fontsReady) return;
     fontsReady = true;
     try {
@@ -49,7 +49,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const bgCache = new Map(); // url -> { image, at }
 const BG_TTL_MS = 10 * 60 * 1000;
 
-async function fetchImage(url, timeoutMs = 6000) {
+export async function fetchImage(url, timeoutMs = 6000) {
     const parsed = new URL(url);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
         throw new Error('Unsupported image protocol');
@@ -80,7 +80,7 @@ async function loadBackground(url) {
 
 // ───────────────────────── drawing helpers ─────────────────────────
 
-function hashSeed(str) {
+export function hashSeed(str) {
     let h = 2166136261;
     for (let i = 0; i < str.length; i++) {
         h ^= str.charCodeAt(i);
@@ -89,7 +89,7 @@ function hashSeed(str) {
     return h >>> 0;
 }
 
-function rng(seed) {
+export function rng(seed) {
     let a = seed >>> 0;
     return () => {
         a = (a + 0x6d2b79f5) >>> 0;
@@ -100,13 +100,13 @@ function rng(seed) {
     };
 }
 
-function hexToRgba(hex, alpha = 1) {
+export function hexToRgba(hex, alpha = 1) {
     const h = hex.replace('#', '');
     const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
-function roundedRectPath(ctx, x, y, w, h, r) {
+export function roundedRectPath(ctx, x, y, w, h, r) {
     const rr = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
     ctx.moveTo(x + rr, y);
@@ -117,7 +117,7 @@ function roundedRectPath(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-function drawCover(ctx, img, x, y, w, h) {
+export function drawCover(ctx, img, x, y, w, h) {
     const scale = Math.max(w / img.width, h / img.height);
     const dw = img.width * scale;
     const dh = img.height * scale;
@@ -125,7 +125,7 @@ function drawCover(ctx, img, x, y, w, h) {
 }
 
 // Cheap, filter-free blur: shrink the image heavily then stretch it back up with smoothing.
-function drawBlurredCover(ctx, img, x, y, w, h, strength = 28) {
+export function drawBlurredCover(ctx, img, x, y, w, h, strength = 28) {
     const small = createCanvas(strength, Math.max(1, Math.round(strength * (h / w))));
     const sctx = small.getContext('2d');
     sctx.imageSmoothingQuality = 'high';
@@ -135,18 +135,18 @@ function drawBlurredCover(ctx, img, x, y, w, h, strength = 28) {
     ctx.drawImage(small, x, y, w, h);
 }
 
-function setFont(ctx, weight, size) {
+export function setFont(ctx, weight, size) {
     ctx.font = `${weight} ${size}px ${FONT_STACK}`;
 }
 
-function ellipsize(ctx, text, maxWidth) {
+export function ellipsize(ctx, text, maxWidth) {
     if (ctx.measureText(text).width <= maxWidth) return text;
     let t = text;
     while (t.length > 1 && ctx.measureText(`${t}…`).width > maxWidth) t = t.slice(0, -1);
     return `${t.trimEnd()}…`;
 }
 
-function fitText(ctx, text, maxWidth, { weight = 800, start = 64, min = 34 } = {}) {
+export function fitText(ctx, text, maxWidth, { weight = 800, start = 64, min = 34 } = {}) {
     let size = start;
     setFont(ctx, weight, size);
     while (size > min && ctx.measureText(text).width > maxWidth) {
@@ -156,13 +156,13 @@ function fitText(ctx, text, maxWidth, { weight = 800, start = 64, min = 34 } = {
     return { text: ellipsize(ctx, text, maxWidth), size };
 }
 
-function spacedWidth(ctx, text, spacing) {
+export function spacedWidth(ctx, text, spacing) {
     let w = 0;
     for (const ch of text) w += ctx.measureText(ch).width + spacing;
     return w - spacing;
 }
 
-function drawSpaced(ctx, text, x, y, spacing) {
+export function drawSpaced(ctx, text, x, y, spacing) {
     let cx = x;
     for (const ch of text) {
         ctx.fillText(ch, cx, y);
@@ -170,7 +170,7 @@ function drawSpaced(ctx, text, x, y, spacing) {
     }
 }
 
-function drawSparkle(ctx, x, y, r, color, alpha) {
+export function drawSparkle(ctx, x, y, r, color, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = color;
