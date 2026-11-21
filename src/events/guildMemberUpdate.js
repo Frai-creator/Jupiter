@@ -1,6 +1,7 @@
 import { Events } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
+import { syncMember } from '../services/tagClaim/tagClaimService.js';
 
 export default {
   name: Events.GuildMemberUpdate,
@@ -9,6 +10,9 @@ export default {
   async execute(oldMember, newMember) {
     try {
       if (!newMember.guild) return;
+
+      // Tag Claim: deteksi pasang/lepas tag server (user object ikut berubah di event ini)
+      syncMember(newMember.client, newMember).catch((e) => logger.warn(`[TagClaim] sync gagal: ${e.message}`));
 
       if (oldMember.nickname !== newMember.nickname) {
         await logEvent({

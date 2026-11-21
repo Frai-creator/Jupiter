@@ -1,20 +1,19 @@
 import { Events } from 'discord.js';
-import { syncSupporterMember } from '../services/supporterRoleService.js';
+import { syncMember } from '../services/tagClaim/tagClaimService.js';
 import { logger } from '../utils/logger.js';
 
+// Hanya terpicu kalau intent GuildPresences aktif (ENABLE_PRESENCE_INTENT=true).
 export default {
   name: Events.PresenceUpdate,
   once: false,
 
-  async execute(oldPresence, newPresence) {
+  async execute(oldPresence, newPresence, client) {
     try {
       const member = newPresence?.member;
-      const guild = newPresence?.guild;
-      if (!guild || !member || member.user?.bot) return;
-
-      await syncSupporterMember(newPresence.client, guild, member, { source: 'presenceUpdate' });
+      if (!member) return;
+      await syncMember(client || member.client, member);
     } catch (error) {
       logger.error('Error in presenceUpdate event:', error);
     }
-  }
+  },
 };

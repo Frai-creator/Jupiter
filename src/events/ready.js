@@ -4,6 +4,7 @@ import config from "../config/application.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
 import { reconcileTicketPanels, reconcileVerificationPanels, reconcileReactionRolePanelHealth } from "../services/panelHealthService.js";
 import { reconcileLevelRoles } from "../services/leveling/levelRoleSyncService.js";
+import { sweepAll as sweepTagClaim } from "../services/tagClaim/tagClaimService.js";
 import { initRiffyAfterReady } from "../services/music/riffySetup.js";
 
 export default {
@@ -41,6 +42,8 @@ export default {
       startupLog(
         `Reaction role panel health: scanned ${reactionRolePanelSummary.scannedPanels} panels, healthy ${reactionRolePanelSummary.healthyPanels}, deleted ${reactionRolePanelSummary.deletedPanels}, missing channel ${reactionRolePanelSummary.missingChannels}, recovered ${reactionRolePanelSummary.recoveredIds}, errors ${reactionRolePanelSummary.errors}`
       );
+
+      sweepTagClaim(client, { fetchAll: true }).catch((e) => logger.warn(`Tag claim baseline sweep failed: ${e.message}`));
 
       const levelRoleSummary = await reconcileLevelRoles(client);
       startupLog(
