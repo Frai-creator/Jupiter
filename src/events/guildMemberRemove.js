@@ -6,6 +6,7 @@ import { getServerCounters, updateCounter } from '../services/serverstatsService
 import { getGuildBirthdays, deleteBirthday } from '../utils/database.js';
 import { deleteUserLevelData } from '../services/leveling/leveling.js';
 import { logger } from '../utils/logger.js';
+import { isStaffMember, isStaffListActive, scheduleStaffRefresh } from '../services/staffListService.js';
 
 export default {
   name: Events.GuildMemberRemove,
@@ -14,6 +15,11 @@ export default {
   async execute(member) {
     try {
         const { guild, user } = member;
+
+        // Staff list realtime: staff keluar dari server
+        if (isStaffListActive(guild.id) && isStaffMember(member)) {
+            scheduleStaffRefresh(member.client, guild.id);
+        }
         
         const welcomeConfig = await getWelcomeConfig(member.client, guild.id);
         

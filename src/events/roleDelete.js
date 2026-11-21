@@ -1,6 +1,8 @@
 import { Events } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
+import { STAFF_ROLE_IDS } from '../config/staffGroups.js';
+import { isStaffListActive, scheduleStaffRefresh } from '../services/staffListService.js';
 import { buildRoleAuditLines } from '../utils/logging/logEmbeds.js';
 
 export default {
@@ -10,6 +12,10 @@ export default {
   async execute(role) {
     try {
       if (!role.guild) return;
+
+      if (STAFF_ROLE_IDS.has(role.id) && isStaffListActive(role.guild.id)) {
+        scheduleStaffRefresh(role.client, role.guild.id);
+      }
 
       const lines = buildRoleAuditLines(role, { includeMemberCount: true });
 

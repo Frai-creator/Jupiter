@@ -1,7 +1,7 @@
 import { Events } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
-import { syncMember } from '../services/tagClaim/tagClaimService.js';
+import { isStaffMember, isStaffListActive, scheduleStaffRefresh } from '../services/staffListService.js';
 
 export default {
   name: Events.GuildMemberUpdate,
@@ -11,8 +11,13 @@ export default {
     try {
       if (!newMember.guild) return;
 
-      // Tag Claim: deteksi pasang/lepas tag server (user object ikut berubah di event ini)
-      syncMember(newMember.client, newMember).catch((e) => logger.warn(`[TagClaim] sync gagal: ${e.message}`));
+      // Staff list realtime: role dipasang/dicabut, nama atau foto staff berubah
+      if (isStaffListActive(newMember.guild.id)) {
+        const wasStaff = oldMember.roles?.cache ? isStaffMember(oldMember) : true;
+        if (wasStaff || isStaffMember(newMember)) {
+          scheduleStaffRefresh(newMember.client, newMember.guild.id);
+        }
+      }
 
       if (oldMember.nickname !== newMember.nickname) {
         await logEvent({
