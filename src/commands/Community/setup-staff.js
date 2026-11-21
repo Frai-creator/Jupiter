@@ -1,116 +1,83 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import {
+    SlashCommandBuilder,
+    PermissionFlagsBits,
+    ChannelType,
+    MessageFlags,
+} from 'discord.js';
+import { postStaffPanel } from '../../services/staffListService.js';
+import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { successEmbed, replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+import { logger } from '../../utils/logger.js';
 
 export default {
+    slashOnly: true,
     data: new SlashCommandBuilder()
         .setName('setup-staff')
-        .setDescription('Kirim panel daftar admin & staff server')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .setDescription('Kirim panel daftar admin & staff (canvas, update otomatis realtime)')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addChannelOption((opt) =>
+            opt
+                .setName('channel')
+                .setDescription('Channel tujuan panel (default: channel ini)')
+                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                .setRequired(false),
+        ),
 
-    async execute(interaction) {
+    async execute(interaction, config, client) {
         if (!interaction.guild) {
-            await interaction.reply({ content: "Fitur ini cuma bisa dipakai di dalam server ya!", ephemeral: true });
-            return;
-        }
-
-        await interaction.deferReply({ ephemeral: true });
-
-        // Data lengkap divisi, role, deskripsi, dan member staff
-        const staffGroups = [
-            {
-                name: 'Eternal Crown',
-                roleId: '1515888261921509477',
-                desc: 'Pemilik server yang memiliki kendali utama dan bertanggung jawab atas pengelolaan serta keputusan penting server.',
-                members: ['<@1451748892055044166>']
-            },
-            {
-                name: 'Crown Duke',
-                roleId: '1515889167530459308',
-                desc: 'Membantu owner dalam mengelola dan mengawasi server, mengatur jalannya kegiatan, serta memastikan seluruh kepengurusan berjalan dengan baik.',
-                members: [
-                    '<@1550473357458411592>',
-                    '<@1541663046571655260>'
-                ]
-            },
-            {
-                name: 'Operator',
-                roleId: '1566366098507702292',
-                desc: 'Mengatur dan mengelola bot server, memastikan fitur bot berjalan dengan baik, serta membantu menangani kebutuhan teknis server.',
-                members: ['<@1302370416332902440>']
-            },
-            {
-                name: 'Aether Council',
-                roleId: '1540194481893285969',
-                desc: 'Menjaga ketertiban server, membantu member, mengawasi aktivitas chat, serta memastikan suasana tetap aman, nyaman, dan menyenangkan.',
-                members: [
-                    '<@1542109299247947849>',
-                    '<@1536992035016540191>'
-                ]
-            },
-            {
-                name: 'Navigator Vanguard',
-                roleId: '1549959899990073405',
-                desc: 'Memandu member dan membantu mereka menemukan arah di server.',
-                members: [
-                    '<@1510198720757764207>',
-                    '<@757146561204715572>',
-                    '<@1524526939711471746>',
-                    '<@1461322081517043825>',
-                    '<@1137018522032148561>'
-                ]
-            },
-            {
-                name: 'Sentinel Watcher',
-                roleId: '1547550490894798879',
-                desc: 'Menjaga keamanan server, mengawasi aktivitas member, dan menjaga ketertiban server.',
-                members: [
-                    '<@1500785712243409066>',
-                    '<@1510290395588984845>',
-                    '<@1433179346813849632>',
-                    '<@1525761448087781399>'
-                ]
-            },
-            {
-                name: 'Entry Verifier',
-                roleId: '1559047040980484146',
-                desc: 'Memverifikasi member dan memastikan proses verifikasi berjalan dengan baik.',
-                members: [
-                    '<@1452478312072089752>',
-                    '<@1270656189344251969>'
-                ]
-            }
-        ];
-
-        let totalStaffCount = staffGroups.reduce((acc, group) => acc + group.members.length, 0);
-
-        const serverIcon = interaction.guild.iconURL({ dynamic: true, size: 512 });
-
-        const staffEmbed = new EmbedBuilder()
-            .setTitle(`✨ Daftar Admin & Staff ${interaction.guild.name}`)
-            // Deskripsi cuma nyisain info total staff doang
-            .setDescription(`🔵 **Total Staff:** ${totalStaffCount} orang`)
-            .setColor(0x2b2d31)
-            .setTimestamp()
-            .setFooter({ text: `Check out channel terkait server` });
-
-        if (serverIcon) {
-            staffEmbed.setThumbnail(serverIcon);
-        }
-
-        for (const group of staffGroups) {
-            const roleHeader = group.roleId ? `<@&${group.roleId}>` : `**${group.name}**`;
-            
-            const memberList = group.members.length > 0 
-                ? group.members.map((m, idx) => `${idx + 1}. ${m}`).join('\n') 
-                : '_(Belum ada member)_';
-
-            staffEmbed.addFields({
-                name: `👑 ${group.name} — ${group.members.length} member`,
-                value: `${roleHeader}\n*${group.desc}*\n\n${memberList}`,
-                inline: false
+            return await InteractionHelper.safeReply(interaction, {
+                content: 'Fitur ini cuma bisa dipakai di dalam server ya!',
+                flags: MessageFlags.Ephemeral,
             });
         }
 
-        await interaction.channel.send({ embeds: [staffEmbed] });
-        await interaction.editReply({ content: "Berhasil mengirim daftar staff!" });
-    }
+        await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
+
+        const guild = interaction.guild;
+        const channel = interaction.options.getChannel('channel') || interaction.channel;
+
+        const me = guild.members.me;
+        const perms = channel.permissionsFor(me);
+        const missing = [
+            ['ViewChannel', 'Lihat Channel'],
+            ['SendMessages', 'Kirim Pesan'],
+            ['EmbedLinks', 'Sematkan Tautan'],
+            ['AttachFiles', 'Lampirkan File'],
+        ]
+            .filter(([flag]) => !perms?.has(PermissionFlagsBits[flag]))
+            .map(([, label]) => label);
+
+        if (missing.length) {
+            return await replyUserError(interaction, {
+                type: ErrorTypes.PERMISSION,
+                message: `Bot butuh izin **${missing.join(', ')}** di ${channel}.`,
+            });
+        }
+
+        try {
+            const { message, snapshot } = await postStaffPanel(client, guild, channel);
+            const total = snapshot.groups.reduce((n, g) => n + g.members.length, 0);
+
+            return await InteractionHelper.safeEditReply(interaction, {
+                embeds: [
+                    successEmbed(
+                        '✅ Panel Staff Terkirim',
+                        [
+                            `**Channel:** ${channel}`,
+                            `**Total staff:** ${total} orang`,
+                            `**Panel:** [lihat pesan](${message.url})`,
+                            '',
+                            'Panel ini akan **update otomatis** setiap ada perubahan role, nama, foto, atau status staff.',
+                        ].join('\n'),
+                    ),
+                ],
+            });
+        } catch (error) {
+            logger.error('Gagal mengirim panel staff:', error);
+            return await replyUserError(interaction, {
+                type: ErrorTypes.UNKNOWN,
+                message: 'Gagal mengirim panel staff. Cek izin bot di channel tujuan lalu coba lagi.',
+            });
+        }
+    },
 };
