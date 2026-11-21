@@ -14,18 +14,17 @@ import { checkGiveaways } from './services/giveawayService.js';
 import { loadCommands, registerCommands as registerSlashCommands } from './handlers/loaders/commandLoader.js';
 import { runSafeTask, handleTaskError, ErrorCodes } from './utils/errorHandler.js';
 import { initializeMusic } from './services/music/riffySetup.js';
+import { sweepAll } from './services/tagClaim/tagClaimService.js';
 import { shutdownMusic } from './services/music/playerHandler.js';
 import pkg from '../package.json' with { type: 'json' };
 import { EXPECTED_SCHEMA_VERSION, EXPECTED_SCHEMA_LABEL } from './config/database/schemaVersion.js';
 
 class TitanBot extends Client {
   constructor() {
-    super({
-      intents: [
+    const intents = [
         
         GatewayIntentBits.Guilds,                        
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildPresences,                 
+        GatewayIntentBits.GuildMembers,                 
 
         GatewayIntentBits.GuildMessages,                
         GatewayIntentBits.GuildMessageReactions,        
@@ -35,8 +34,15 @@ class TitanBot extends Client {
         GatewayIntentBits.GuildVoiceStates,             
 
         GatewayIntentBits.GuildBans,                    
-      ],
-    });
+    ];
+
+    // Privileged: dibutuhkan agar Tag Claim bisa membaca link di custom status.
+    // Aktifkan "Presence Intent" di Developer Portal sebelum set ENABLE_PRESENCE_INTENT=true.
+    if (String(process.env.ENABLE_PRESENCE_INTENT || '').toLowerCase() === 'true') {
+      intents.push(GatewayIntentBits.GuildPresences);
+    }
+
+    super({ intents });
 
     this.config = config;
     this.commands = new Collection();
@@ -251,6 +257,7 @@ class TitanBot extends Client {
   setupCronJobs() {
     cron.schedule('0 6 * * *', runSafeTask('birthday_check', () => checkBirthdays(this)));
     cron.schedule('* * * * *', runSafeTask('giveaway_check', () => checkGiveaways(this)));
+    cron.schedule('*/10 * * * *', runSafeTask('tagclaim_sweep', () => sweepAll(this)));
     cron.schedule('*/15 * * * *', runSafeTask('counter_update', () => this.updateAllCounters()));
   }
 
