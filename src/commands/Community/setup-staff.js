@@ -6,7 +6,8 @@ import {
 } from 'discord.js';
 import { postStaffPanel } from '../../services/staffListService.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { successEmbed, replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
+import { successEmbed } from '../../utils/embeds.js';
+import { replyUserError, ErrorTypes } from '../../utils/errorHandler.js';
 import { logger } from '../../utils/logger.js';
 
 export default {
