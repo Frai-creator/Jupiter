@@ -34,6 +34,7 @@ const CATEGORY_ICONS = {
     Search: "🔍",
     "Reaction Roles": "🎭",
     Community: "👥",
+    AI: "🤖",
     Birthday: "🎂",
     "Join To Create": "🔌",
     Verification: "✅",
