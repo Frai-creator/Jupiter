@@ -12,6 +12,7 @@ import { getCommandPrefix, getBotMessage, isBotOwner, isCommandCategoryEnabled, 
 import { enforceAbuseProtection, formatCooldownDuration } from '../utils/abuseProtection.js';
 import { createEmbed } from '../utils/embeds.js';
 import { isCommandEnabled } from '../services/commandAccessService.js';
+import { handleAiMessage } from '../services/ai/aiService.js';
 import {
   getCountingGameConfig,
   saveCountingGameConfig,
@@ -34,6 +35,9 @@ export default {
       if (countingProcessed) {
         return;
       }
+
+      // AI berjalan di belakang layar (tidak menghalangi prefix command & XP leveling).
+      handleAiMessage(message, client).catch((error) => logger.error('Error in AI handler:', error));
 
       await handlePrefixCommand(message, client);
 
